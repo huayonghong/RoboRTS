@@ -7,71 +7,109 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  ***************************************************************************/
 
-#include <thread>
+#include <memory>
 
-#include <ros/ros.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <actionlib/client/simple_action_client.h>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
-#include "roborts_msgs/GlobalPlannerAction.h"
+#include <roborts_msgs/action/global_planner.hpp>
+
 #include "state/error_code.h"
 
 using roborts_common::ErrorCode;
 
-class GlobalPlannerTest{
+using GlobalPlanner = roborts_msgs::action::GlobalPlanner;
+using GoalHandleGlobalPlanner =
+    rclcpp_action::ClientGoalHandle<GlobalPlanner>;
+
+class GlobalPlannerTest : public rclcpp::Node {
  public:
-  GlobalPlannerTest():
-      global_planner_actionlib_client_("global_planner_node_action", true){
-    ros::NodeHandle rviz_nh("move_base_simple");
-    goal_sub_ = rviz_nh.subscribe<geometry_msgs::PoseStamped>("goal", 1,
-                                                              &GlobalPlannerTest::GoalCallback,this);
-
-    global_planner_actionlib_client_.waitForServer();
-  }
-  ~GlobalPlannerTest() = default;
-
-  void GoalCallback(const geometry_msgs::PoseStamped::ConstPtr & goal){
-    ROS_INFO("Get new goal.");
-    command_.goal = *goal;
-    global_planner_actionlib_client_.sendGoal(command_,
-                                              boost::bind(&GlobalPlannerTest::DoneCallback, this, _1, _2),
-                                              boost::bind(&GlobalPlannerTest::ActiveCallback, this),
-                                              boost::bind(&GlobalPlannerTest::FeedbackCallback, this, _1)
-    );
+  explicit GlobalPlannerTest()
+      : Node("global_planner_test"),
+        goal_sub_(create_subscription<geometry_msgs::msg::PoseStamped>(
+            "/move_base_simple/goal", 10,
+            std::bind(&GlobalPlannerTest::GoalCallback, this,
+                      std::placeholders::_1))),
+        client_(rclcpp_action::create_client<GlobalPlanner>(
+            *this, "/global_planner_node_action")) {
+    timer_ =
+        create_wall_timer(std::chrono::milliseconds(100),
+                         std::bind(&GlobalPlannerTest::TryConnectTimer, this));
   }
 
-  void DoneCallback(const actionlib::SimpleClientGoalState& state,  const roborts_msgs::GlobalPlannerResultConstPtr& result){
-    ROS_INFO("The goal is done with %s!",state.toString().c_str());
-  }
-  void ActiveCallback() {
-    ROS_INFO("Action server has recived the goal, the goal is active!");
-  }
-  void FeedbackCallback(const roborts_msgs::GlobalPlannerFeedbackConstPtr& feedback){
-    if (feedback->error_code != ErrorCode::OK) {
-      ROS_INFO("%s", feedback->error_msg.c_str());
-    }
-    if (!feedback->path.poses.empty()) {
-      ROS_INFO("Get Path!");
-    }
-  }
  private:
-  ros::Subscriber goal_sub_;
-  roborts_msgs::GlobalPlannerGoal command_;
-  actionlib::SimpleActionClient<roborts_msgs::GlobalPlannerAction> global_planner_actionlib_client_;
+  void TryConnectTimer() {
+    if (client_ready_) {
+      return;
+    }
+    if (!client_->action_server_is_ready()) {
+      return;
+    }
+    client_ready_ = true;
+    RCLCPP_INFO(get_logger(),
+                "Connected to global_planner_node_action.");
+  }
+
+  void GoalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr goal_msg) {
+    if (!client_->action_server_is_ready()) {
+      RCLCPP_WARN(get_logger(),
+                  "Global planner action server not ready.");
+      return;
+    }
+    GlobalPlanner::Goal cmd;
+    cmd.command = 0;
+    cmd.goal = *goal_msg;
+    auto opts = rclcpp_action::Client<GlobalPlanner>::SendGoalOptions();
+    opts.goal_response_callback =
+        [](std::shared_ptr<GoalHandleGlobalPlanner> gh) {
+          (void)gh;
+          RCLCPP_INFO(rclcpp::get_logger("planning"),
+                     "Goal accepted by global planner.");
+        };
+    opts.feedback_callback =
+        [](GoalHandleGlobalPlanner::SharedPtr,
+           const std::shared_ptr<const GlobalPlanner::Feedback> feedback) {
+          if (feedback->error_code != ErrorCode::OK) {
+            RCLCPP_INFO(rclcpp::get_logger("planning"), "%s",
+                       feedback->error_msg.c_str());
+          }
+          if (!feedback->path.poses.empty()) {
+            RCLCPP_INFO(rclcpp::get_logger("planning"), "Get Path!");
+          }
+        };
+    opts.result_callback =
+        [&](const GoalHandleGlobalPlanner::WrappedResult &result) {
+          if (result.code == rclcpp_action::ResultCode::SUCCEEDED) {
+            RCLCPP_INFO(get_logger(),
+                       "Goal finished with SUCCESS.");
+          } else {
+            RCLCPP_INFO(get_logger(),
+                       "Goal finished with terminal state.");
+          }
+        };
+    client_->async_send_goal(cmd, opts);
+  }
+
+  bool client_ready_{false};
+  rclcpp::TimerBase::SharedPtr timer_;
+
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub_;
+
+  rclcpp_action::Client<GlobalPlanner>::SharedPtr client_;
 };
 
 int main(int argc, char **argv) {
-  ros::init(argc, argv, "global_planner_test");
-  GlobalPlannerTest global_planner_test;
-  ros::spin();
+  rclcpp::init(argc, argv);
+  rclcpp::spin(std::make_shared<GlobalPlannerTest>());
+  rclcpp::shutdown();
   return 0;
 }
-

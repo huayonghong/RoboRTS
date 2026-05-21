@@ -68,7 +68,8 @@ void SensorOdom::SetModelOmni(double alpha1, double alpha2, double alpha3, doubl
 
 bool SensorOdom::UpdateAction(SampleSetPtr sample_set_ptr, const SensorOdomData &odom_data) {
 
-  DLOG_INFO << "Compute the new sample poses by motion model";
+  RCLCPP_DEBUG_STREAM(localization_logger(),
+                      "Compute the new sample poses by motion model");
 
   Vec3d old_pose = (odom_data.pose) - (odom_data.delta);
 

@@ -53,7 +53,7 @@
 #ifndef ROBORTS_COSTMAP_COSTMAP_LAYER_H
 #define ROBORTS_COSTMAP_COSTMAP_LAYER_H
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include "layer.h"
 #include "layered_costmap.h"
 #include "costmap_2d.h"

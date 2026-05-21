@@ -49,20 +49,27 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *
  *********************************************************************/
+#include <functional>
+
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
 #include "static_layer_setting.pb.h"
 #include "static_layer.h"
 
 namespace roborts_costmap {
 
 void StaticLayer::OnInitialize() {
-  ros::NodeHandle nh;
   is_current_ = true;
   ParaStaticLayer para_static_layer;
 
-  std::string static_map = ros::package::getPath("roborts_costmap") + \
+  std::string static_map =
+      ament_index_cpp::get_package_share_directory("roborts_costmap") +
       "/config/static_layer_config.prototxt";
   roborts_common::ReadProtoFromTextFile(static_map.c_str(), &para_static_layer);
-  global_frame_ = layered_costmap_-> GetGlobalFrameID();
+  global_frame_ = layered_costmap_->GetGlobalFrameID();
   first_map_only_ = para_static_layer.first_map_only();
   subscribe_to_updates_ = para_static_layer.subscribe_to_updates();
   track_unknown_space_ = para_static_layer.track_unknown_space();
@@ -72,14 +79,18 @@ void StaticLayer::OnInitialize() {
   trinary_costmap_ = para_static_layer.trinary_map();
   unknown_cost_value_ = para_static_layer.unknown_cost_value();
   map_received_ = false;
-  bool is_debug_ = para_static_layer.is_debug();
+  (void)para_static_layer.is_debug();
   map_topic_ = para_static_layer.topic_name();
-  map_sub_ = nh.subscribe(map_topic_.c_str(), 1, &StaticLayer::InComingMap, this);
-  ros::Rate temp_rate(10);
-  while(!map_received_) {
-    ros::spinOnce();
+  map_sub_ = node_->create_subscription<nav_msgs::msg::OccupancyGrid>(
+      map_topic_, rclcpp::QoS(1),
+      std::bind(&StaticLayer::InComingMap, this, std::placeholders::_1));
+
+  rclcpp::WallRate temp_rate(10.0);
+  while (!map_received_ && rclcpp::ok(node_->get_context())) {
+    rclcpp::spin_some(node_);
     temp_rate.sleep();
   }
+
   staic_layer_x_ = staic_layer_y_ = 0;
   width_ = size_x_;
   height_ = size_y_;
@@ -95,7 +106,7 @@ void StaticLayer::MatchSize() {
   }
 }
 
-void StaticLayer::InComingMap(const nav_msgs::OccupancyGridConstPtr &new_map) {
+void StaticLayer::InComingMap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr &new_map) {
   unsigned int temp_index = 0;
   unsigned char value = 0;
   unsigned int size_x = new_map->info.width, size_y = new_map->info.height;
@@ -113,7 +124,8 @@ void StaticLayer::InComingMap(const nav_msgs::OccupancyGridConstPtr &new_map) {
 
   for (auto i = 0; i < size_y; i++) {
     for (auto j = 0; j < size_x; j++) {
-      value = new_map->data[temp_index];
+      value = static_cast<unsigned char>(
+          static_cast<int8_t>(new_map->data[temp_index]));
       costmap_[temp_index] = InterpretValue(value);
       ++temp_index;
     }
@@ -125,7 +137,7 @@ void StaticLayer::InComingMap(const nav_msgs::OccupancyGridConstPtr &new_map) {
   width_ = size_x_;
   height_ = size_y_;
   if (first_map_only_) {
-    map_sub_.shutdown();
+    map_sub_.reset();
   }
 }
 
@@ -149,9 +161,7 @@ void StaticLayer::Activate() {
 }
 
 void StaticLayer::Deactivate() {
-//    delete cost_map_;
-  //shut down the map topic message subscriber
-  map_sub_.shutdown();
+  map_sub_.reset();
 }
 
 void StaticLayer::Reset() {
@@ -199,25 +209,33 @@ void StaticLayer::UpdateCosts(Costmap2D& master_grid, int min_i, int min_j, int 
   } else {
     unsigned int mx, my;
     double wx, wy;
-    tf::StampedTransform temp_transform;
-    try {
-      tf_->lookupTransform(map_frame_, global_frame_, ros::Time(0), temp_transform);
-    }
-    catch (tf::TransformException ex) {
-      ROS_ERROR("%s", ex.what());
-      return;
-    }
-    for(auto i = min_i; i < max_i; ++i) {
-      for(auto j = min_j; j < max_j; ++j) {
-        layered_costmap_->GetCostMap()->Map2World(i, j, wx, wy);
-        tf::Point p(wx, wy, 0);
-        p = temp_transform(p);
-        if(World2Map(p.x(), p.y(), mx, my)){
-          if(!use_maximum_) {
-            master_grid.SetCost(i, j, GetCost(mx, my));
-          }
-          else {
-            master_grid.SetCost(i, j, std::max(master_grid.GetCost(i, j), GetCost(i, j)));
+    for (auto i = min_i; i < max_i; ++i) {
+      for (auto j = min_j; j < max_j; ++j) {
+        layered_costmap_->GetCostMap()->Map2World(static_cast<unsigned int>(i),
+                                                  static_cast<unsigned int>(j), wx,
+                                                  wy);
+        geometry_msgs::msg::PointStamped pin;
+        pin.header.frame_id = global_frame_;
+        pin.header.stamp.sec = 0;
+        pin.header.stamp.nanosec = 0;
+        pin.point.x = wx;
+        pin.point.y = wy;
+        pin.point.z = 0.0;
+        geometry_msgs::msg::PointStamped pout;
+        try {
+          tf_->transform(pin, pout, map_frame_, tf2::durationFromSec(0.1));
+        } catch (const tf2::TransformException &ex) {
+          RCLCPP_ERROR(rclcpp::get_logger("costmap"), "%s", ex.what());
+          return;
+        }
+        if (World2Map(pout.point.x, pout.point.y, mx, my)) {
+          unsigned mi = static_cast<unsigned int>(i);
+          unsigned mj = static_cast<unsigned int>(j);
+          if (!use_maximum_) {
+            master_grid.SetCost(mi, mj, GetCost(mx, my));
+          } else {
+            master_grid.SetCost(mi, mj,
+                                std::max(master_grid.GetCost(mi, mj), GetCost(mx, my)));
           }
         }
       }

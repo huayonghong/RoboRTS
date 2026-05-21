@@ -43,7 +43,7 @@
 #include <cmath>
 #include <queue>
 #include <memory>
-#include <nav_msgs/OccupancyGrid.h>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 
 #include "log.h"
 #include "localization_math.h"
@@ -109,7 +109,7 @@ class AmclMap {
    * @brief Convert static map message to AmclMap
    * @param map_msg Static map message
    */
-  void ConvertFromMsg(const nav_msgs::OccupancyGrid &map_msg);
+  void ConvertFromMsg(const nav_msgs::msg::OccupancyGrid &map_msg);
 
   /**
    * @brief Update the cspace distance values, used by LikelihoodFiledProbe model
@@ -184,7 +184,7 @@ class AmclMap {
 
   double GetDiagDistance() const;
 
-  const nav_msgs::OccupancyGrid &ConvertDistanMaptoMapMsg();
+  const nav_msgs::msg::OccupancyGrid &ConvertDistanMaptoMapMsg();
 
  private:
 
@@ -210,7 +210,7 @@ class AmclMap {
   /**
    * @brief The static distance map messages data
    */
-  nav_msgs::OccupancyGrid distance_map_msg_;
+  nav_msgs::msg::OccupancyGrid distance_map_msg_;
 
   /**
    * @brief Map origin; the map is a viewport onto a conceptual larger map.

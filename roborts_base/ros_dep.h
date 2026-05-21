@@ -7,44 +7,42 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  ***************************************************************************/
-
 #ifndef ROBORTS_SDK_PROTOCOL_DEFINE_ROS_H
 #define ROBORTS_SDK_PROTOCOL_DEFINE_ROS_H
-#include <ros/ros.h>
-#include <tf/transform_broadcaster.h>
+#include <rclcpp/rclcpp.hpp>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include <nav_msgs/Odometry.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/Twist.h>
+#include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
-//Chassis
-#include "roborts_msgs/TwistAccel.h"
+#include "roborts_msgs/msg/twist_accel.hpp"
+#include "roborts_msgs/msg/gimbal_angle.hpp"
+#include "roborts_msgs/msg/gimbal_rate.hpp"
+#include "roborts_msgs/srv/gimbal_mode.hpp"
+#include "roborts_msgs/srv/shoot_cmd.hpp"
+#include "roborts_msgs/srv/fric_whl.hpp"
 
-//Gimbal
-#include "roborts_msgs/GimbalAngle.h"
-#include "roborts_msgs/GimbalRate.h"
-#include "roborts_msgs/GimbalMode.h"
-#include "roborts_msgs/ShootCmd.h"
-#include "roborts_msgs/FricWhl.h"
-
-//Referee System
-#include "roborts_msgs/BonusStatus.h"
-#include "roborts_msgs/GameResult.h"
-#include "roborts_msgs/GameStatus.h"
-#include "roborts_msgs/GameSurvivor.h"
-#include "roborts_msgs/ProjectileSupply.h"
-#include "roborts_msgs/RobotBonus.h"
-#include "roborts_msgs/RobotDamage.h"
-#include "roborts_msgs/RobotHeat.h"
-#include "roborts_msgs/RobotShoot.h"
-#include "roborts_msgs/RobotStatus.h"
-#include "roborts_msgs/SupplierStatus.h"
+#include "roborts_msgs/msg/bonus_status.hpp"
+#include "roborts_msgs/msg/game_result.hpp"
+#include "roborts_msgs/msg/game_status.hpp"
+#include "roborts_msgs/msg/game_survivor.hpp"
+#include "roborts_msgs/msg/projectile_supply.hpp"
+#include "roborts_msgs/msg/robot_bonus.hpp"
+#include "roborts_msgs/msg/robot_damage.hpp"
+#include "roborts_msgs/msg/robot_heat.hpp"
+#include "roborts_msgs/msg/robot_shoot.hpp"
+#include "roborts_msgs/msg/robot_status.hpp"
+#include "roborts_msgs/msg/supplier_status.hpp"
 
 #endif //ROBORTS_SDK_PROTOCOL_DEFINE_ROS_H

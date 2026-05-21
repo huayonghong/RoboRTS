@@ -15,35 +15,40 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  ***************************************************************************/
 
-#include <vector>
-#include <thread>
-#include <mutex>
-//opencv
-#include "opencv2/opencv.hpp"
-//ros
-#include "image_transport/image_transport.h"
-#include "cv_bridge/cv_bridge.h"
+#include <functional>
+#include <string>
+
+#include <opencv2/opencv.hpp>
+
+#include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/image.hpp>
 
 std::string topic_name = "back_camera";
-cv::VideoWriter writer(topic_name+".avi", CV_FOURCC('M', 'J', 'P', 'G'), 25.0, cv::Size(640, 360));
 cv::Mat src_img;
 
-void ReceiveImg(const sensor_msgs::ImageConstPtr &msg) {
+void ReceiveImg(const sensor_msgs::msg::Image::ConstSharedPtr &msg) {
   src_img = cv_bridge::toCvShare(msg, "bgr8")->image.clone();
+  static cv::VideoWriter writer(
+      topic_name + ".avi",
+      cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+      25.0,
+      cv::Size(640, 360));
   writer.write(src_img);
 }
 
 int main(int argc, char **argv) {
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("image_capture");
 
-  ros::init(argc, argv, "image_capture");
-  ros::NodeHandle nh;
+  image_transport::ImageTransport it(node);
 
-  image_transport::ImageTransport it(nh);
+  image_transport::Subscriber sub = it.subscribe(
+      topic_name, rclcpp::QoS(20),
+      std::bind(&ReceiveImg, std::placeholders::_1));
 
-  image_transport::Subscriber sub = it.subscribe(topic_name, 20, boost::bind(&ReceiveImg, _1));
-
-  ros::AsyncSpinner async_spinner(1);
-  async_spinner.start();
-  ros::waitForShutdown();
+  rclcpp::spin(node);
+  rclcpp::shutdown();
   return 0;
 }

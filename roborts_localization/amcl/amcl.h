@@ -42,10 +42,10 @@
 #include <mutex>
 #include <functional>
 
-#include <tf/tf.h>
-#include <geometry_msgs/PoseArray.h>
-#include <sensor_msgs/LaserScan.h>
-#include <nav_msgs/OccupancyGrid.h>
+#include <geometry_msgs/msg/pose_array.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #include "log.h"
 #include "localization_math.h"
@@ -98,13 +98,13 @@ class Amcl {
    */
   ~Amcl();
 
-  void GetParamFromRos(ros::NodeHandle *nh);
+  void GetParamFromRos(rclcpp::Node::SharedPtr node);
 
   /**
    * @brief Map message handler
    * @param map_msg Static Map message
    */
-  void HandleMapMessage(const nav_msgs::OccupancyGrid &map_msg, const Vec3d &init_pose, const Vec3d &init_cov);
+  void HandleMapMessage(const nav_msgs::msg::OccupancyGrid &map_msg, const Vec3d &init_pose, const Vec3d &init_cov);
 
   /**
    * @brief Initial pose estimation message handler
@@ -130,13 +130,12 @@ class Amcl {
    * @param hyp_pose Pose hypothesis to publish
    * @return Error code
    */
-  int Update(const Vec3d &pose,
-             const sensor_msgs::LaserScan &laser_scan,
-             const double &angle_min,
-             const double &angle_increment,
-             geometry_msgs::PoseArray &particle_cloud_pose_msg,
-             HypPose &hyp_pose
-  );
+  void Update(const Vec3d &pose,
+              const sensor_msgs::msg::LaserScan &laser_scan,
+              const double &angle_min,
+              const double &angle_increment,
+              geometry_msgs::msg::PoseArray &particle_cloud_pose_msg,
+              HypPose &hyp_pose);
 
   void UpdateUwb(const Vec3d &uwb_pose, const Vec3d &uwb_cov);
 
@@ -162,7 +161,7 @@ class Amcl {
 
   bool RandomHeadingGlobalLocalization();
 
-  const nav_msgs::OccupancyGrid &GetDistanceMapMsg();
+  const nav_msgs::msg::OccupancyGrid &GetDistanceMapMsg();
 
  private:
   void Reset();
@@ -174,16 +173,16 @@ class Amcl {
 
   void UpdateOdomPoseData(Vec3d pose);
 
-  void UpdateLaser(const sensor_msgs::LaserScan &laser_scan,
+  void UpdateLaser(const sensor_msgs::msg::LaserScan &laser_scan,
                    double angle_min,
                    double angle_increment,
                    const Vec3d &pose,
-                   geometry_msgs::PoseArray &particle_cloud_pose_msg);
+                   geometry_msgs::msg::PoseArray &particle_cloud_pose_msg);
 
   void UpdateFilter(HypPose &hyp_pose,
-                    ros::Time laser_msg_timestamp);
+                    const rclcpp::Time &laser_msg_timestamp);
 
-  geometry_msgs::PoseArray ResampleParticles();
+  geometry_msgs::msg::PoseArray ResampleParticles();
 
   Vec3d UniformPoseGenerator();
 
@@ -224,7 +223,7 @@ class Amcl {
   bool use_global_localization_ = true;
   bool random_heading_ = true;
 
-  ros::Duration cloud_pub_interval_;
+  rclcpp::Duration cloud_pub_interval_{std::chrono::seconds(0)};
 
   static std::vector<std::pair<int, int> > free_space_indices;
 

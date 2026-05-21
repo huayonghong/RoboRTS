@@ -7,8 +7,8 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
@@ -21,13 +21,11 @@
 #include <thread>
 #include <vector>
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <opencv2/opencv.hpp>
-#include <actionlib/server/simple_action_server.h>
-#include <image_transport/image_transport.h>
+#include <image_transport/image_transport.hpp>
 
 #include "uvc/uvc_driver.h"
-
 #include "camera_param.h"
 #include "camera_base.h"
 #include "alg_factory/algorithm_factory.h"
@@ -35,44 +33,48 @@
 
 namespace roborts_camera{
 
+/**
+ * @brief Camera node for capturing images and publishing them via image_transport.
+ */
 class CameraNode{
  public:
   /**
-   * @brief Construcor of camera node
+   * @brief Constructor of camera node.
    * @details Read the camera parameter, create the camera drivers based on camera factory
    * and start all camera threads for update images.
+   * @param node Shared pointer to the ROS 2 node.
    */
-  explicit CameraNode();
+  explicit CameraNode(rclcpp::Node::SharedPtr node);
   /**
-   * @brief Start all the threads for camera drivers to update and publish the image data
+   * @brief Start all the threads for camera drivers to update and publish the image data.
    */
   void StartThread();
   /**
-   * @brief Invoke each camera driver to read the image data and publish using ROS image_transport with corresponding parameter
+   * @brief Invoke each camera driver to read the image data and publish using ROS
+   * image_transport with corresponding parameter.
+   * @param camera_num_ Camera index.
    */
   void Update(const unsigned int camera_num_);
   /**
- * @brief Stop to read image.
- */
+   * @brief Stop to read image.
+   */
   void StoptThread();
   ~CameraNode();
  private:
-  //! drivers of different cameras inherited from camera base
+  //! Drivers of different cameras inherited from camera base.
   std::vector<std::shared_ptr<CameraBase>> camera_driver_;
-  //! camera parameters
+  //! Camera parameters.
   CameraParam camera_param_;
-  //! number of cameras
+  //! Number of cameras.
   unsigned long camera_num_;
-  //! flag of running
+  //! Flag of running.
   bool running_;
-  //! threads of different cameras
+  //! Threads of different cameras.
   std::vector<std::thread> camera_threads_;
-
-  //! ROS node handlers of different cameras
-  std::vector<ros::NodeHandle> nhs_;
-  //! ROS image transport camera publisher to publish image data
+  //! Shared ROS 2 node.
+  rclcpp::Node::SharedPtr node_;
+  //! ROS image_transport camera publishers to publish image data.
   std::vector<image_transport::CameraPublisher> img_pubs_;
-
 };
 } //namespace roborts_camera
 

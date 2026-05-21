@@ -52,10 +52,10 @@
 #ifndef ROBORTS_COSTMAP_COSTMAP_2D_H
 #define ROBORTS_COSTMAP_COSTMAP_2D_H
 
-#include <vector>
-#include <queue>
+#include <geometry_msgs/msg/point.hpp>
 #include <mutex>
-#include <geometry_msgs/Point.h>
+#include <queue>
+#include <vector>
 
 namespace roborts_costmap{
 
@@ -263,7 +263,7 @@ class Costmap2D {
    * @param  cost_value The value to set costs to
    * @return True if the polygon was filled, false if it could not be filled
    */
-  bool SetConvexRegionCost(const std::vector<geometry_msgs::Point> &polygon_edge_world, unsigned char value);
+  bool SetConvexRegionCost(const std::vector<geometry_msgs::msg::Point> &polygon_edge_world, unsigned char value);
 
   /**polygonOutlineCells
    * @brief  Get the map cells that make up the outline of a polygon

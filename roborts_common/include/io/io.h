@@ -30,8 +30,8 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
 
-#include <ros/package.h>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 
 namespace roborts_common{
@@ -48,11 +48,11 @@ inline bool ReadProtoFromTextFile(const char *file_name, T *proto) {
   using google::protobuf::Message;
 
   std::string full_path = /*ros::package::getPath("roborts") +*/ std::string(file_name);
-  ROS_INFO("Load prototxt: %s", full_path.c_str());
+  RCLCPP_INFO(rclcpp::get_logger("io"), "Load prototxt: %s", full_path.c_str());
 
   int fd = open(full_path.c_str(), O_RDONLY);
   if (fd == -1) {
-    ROS_ERROR("File not found: %s", full_path.c_str());
+    RCLCPP_ERROR(rclcpp::get_logger("io"), "File not found: %s", full_path.c_str());
     return false;
   }
   FileInputStream *input = new FileInputStream(fd);
@@ -80,7 +80,7 @@ inline bool ReadProtoFromBinaryFile(const char *file_name, T *proto) {
   int fd = open(file_name, O_RDONLY);
   if (fd == -1) {
     proto = NULL;
-    ROS_ERROR("File not found: %s", file_name);
+    RCLCPP_ERROR(rclcpp::get_logger("io"), "File not found: %s", file_name);
   }
 
   ZeroCopyInputStream *raw_input = new FileInputStream(fd);

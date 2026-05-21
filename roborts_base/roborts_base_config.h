@@ -7,23 +7,23 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  ***************************************************************************/
-
 #ifndef ROBORTS_BASE_CONFIG_H
 #define ROBORTS_BASE_CONFIG_H
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
 namespace roborts_base{
 
 struct Config {
-  void GetParam(ros::NodeHandle *nh) {
-    nh->param<std::string>("serial_port", serial_port, "/dev/serial_sdk");
+  void GetParam(rclcpp::Node::SharedPtr node) {
+    node->declare_parameter("serial_port", "/dev/serial_sdk");
+    node->get_parameter("serial_port", serial_port);
   }
   std::string serial_port;
 };

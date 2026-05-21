@@ -1,67 +1,61 @@
+/****************************************************************************
+ *  Copyright (C) 2019 RoboMaster.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ ***************************************************************************/
+
 #ifndef ROBORTS_DECISION_GIMBAL_EXECUTOR_H
 #define ROBORTS_DECISION_GIMBAL_EXECUTOR_H
-#include "ros/ros.h"
 
-#include "roborts_msgs/GimbalAngle.h"
-#include "roborts_msgs/GimbalRate.h"
+#include <memory>
+
+#include <rclcpp/rclcpp.hpp>
+#include <roborts_msgs/msg/gimbal_angle.hpp>
+#include <roborts_msgs/msg/gimbal_rate.hpp>
 
 #include "../behavior_tree/behavior_state.h"
-namespace roborts_decision{
-/***
- * @brief Gimbal Executor to execute different abstracted task for gimbal module
- */
-class GimbalExecutor{
+
+namespace roborts_decision {
+
+class GimbalExecutor {
  public:
-  /**
-   * @brief Gimbal execution mode for different tasks
-   */
-  enum class ExcutionMode{
-    IDLE_MODE,   ///< Default idle mode with no task
-    ANGLE_MODE,  ///< Angle task mode
-    RATE_MODE    ///< Rate task mode
+  enum class ExcutionMode {
+    IDLE_MODE,
+    ANGLE_MODE,
+    RATE_MODE
   };
-  /**
-   * @brief Constructor of GimbalExecutor
-   */
-  GimbalExecutor();
+
+  explicit GimbalExecutor(rclcpp::Node::SharedPtr node);
   ~GimbalExecutor() = default;
-  /***
-   * @brief Execute the gimbal angle task with publisher
-   * @param gimbal_angle Given gimbal angle
-   */
-  void Execute(const roborts_msgs::GimbalAngle &gimbal_angle);
-  /***
-   * @brief Execute the gimbal rate task with publisher
-   * @param gimbal_rate Given gimbal rate
-   */
-  void Execute(const roborts_msgs::GimbalRate &gimbal_rate);
-  /**
-   * @brief Update the current gimbal executor state
-   * @return Current gimbal executor state(same with behavior state)
-   */
+
+  void Execute(const roborts_msgs::msg::GimbalAngle &gimbal_angle);
+  void Execute(const roborts_msgs::msg::GimbalRate &gimbal_rate);
+
   BehaviorState Update();
-  /**
-   * @brief Cancel the current task and deal with the mode transition
-   */
   void Cancel();
 
  private:
-  //! execution mode of the executor
   ExcutionMode excution_mode_;
-  //! execution state of the executor (same with behavior state)
   BehaviorState execution_state_;
 
-  //! gimbal rate control publisher in ROS
-  ros::Publisher cmd_gimbal_rate_pub_;
-  //! zero gimbal rate in form of ROS roborts_msgs::GimbalRate
-  roborts_msgs::GimbalRate zero_gimbal_rate_;
+  rclcpp::Node::SharedPtr node_;
 
-  //! gimbal angle control publisher in ROS
-  ros::Publisher cmd_gimbal_angle_pub_;
+  rclcpp::Publisher<roborts_msgs::msg::GimbalRate>::SharedPtr cmd_gimbal_rate_pub_;
+  roborts_msgs::msg::GimbalRate zero_gimbal_rate_;
 
-
+  rclcpp::Publisher<roborts_msgs::msg::GimbalAngle>::SharedPtr cmd_gimbal_angle_pub_;
 };
-}
+} // namespace roborts_decision
 
-
-#endif //ROBORTS_DECISION_GIMBAL_EXECUTOR_H
+#endif // ROBORTS_DECISION_GIMBAL_EXECUTOR_H

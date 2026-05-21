@@ -1,7 +1,10 @@
 /****************************************************************************
  *  Copyright (C) 2019 RoboMaster.
  *
- *  This program is free software: you can redistribute it and/or modify *  it under the terms of the GNU General Public License as published by *  the Free Software Foundation, either version 3 of the License, or *  (at your option) any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
@@ -15,20 +18,22 @@
 #ifndef ROBORTS_DETECTION_CVTOOLBOX_H
 #define ROBORTS_DETECTION_CVTOOLBOX_H
 
-#include <vector>
-#include <thread>
+#include <chrono>
+#include <functional>
+#include <memory>
 #include <mutex>
-//opencv
+#include <string>
+#include <vector>
+
 #include <opencv2/opencv.hpp>
-//ros
-#include <image_transport/image_transport.h>
+
 #include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
 
 namespace roborts_detection {
-
-/**
- * This class is a toolbox for RoboMaster detection.
- */
 
 enum BufferState {
   IDLE = 0,
@@ -38,35 +43,38 @@ enum BufferState {
 
 class CVToolbox {
  public:
-  /**
-   *  @brief The constructor of the CVToolbox.
-   */
-  explicit CVToolbox(std::string camera_name,
-                     unsigned int buffer_size = 3) :
-      get_img_info_(false)
-  {
+  explicit CVToolbox(const std::string &camera_namespace,
+                     unsigned int buffer_size = 3)
+      : get_img_info_(false) {
+    rclcpp::NodeOptions opts;
+    node_ = std::make_shared<rclcpp::Node>(
+        "cv_toolbox", camera_namespace[0] == '/' ? camera_namespace.substr(1) : camera_namespace,
+        opts);
+    logger_ = node_->get_logger();
 
-    ros::NodeHandle nh(camera_name);
-    image_transport::ImageTransport it(nh);
-
-    camera_sub_ = it.subscribeCamera("image_raw",
-                                     20,
-                                     boost::bind(&CVToolbox::ImageCallback, this, _1,_2));
+    image_transport::ImageTransport it(node_);
+    camera_sub_ = it.subscribeCamera(
+        "image_raw",
+        20,
+        std::bind(&CVToolbox::ImageCallback, this, std::placeholders::_1,
+                  std::placeholders::_2));
 
     image_buffer_.resize(buffer_size);
     buffer_state_.resize(buffer_size);
     index_ = 0;
     capture_time_ = -1;
-    for (int i = 0; i < buffer_state_.size(); ++i) {
+    for (unsigned int i = 0; i < buffer_state_.size(); ++i) {
       buffer_state_[i] = BufferState::IDLE;
     }
     latest_index_ = -1;
-
   }
+
+  rclcpp::Node::SharedPtr GetNode() const { return node_; }
 
   int GetCameraHeight() {
     if (!get_img_info_) {
-      ROS_WARN("Can not get camera height info, because the first frame data wasn't received");
+      RCLCPP_WARN(logger_,
+                  "Can not get camera height info, because the first frame data wasn't received");
       return -1;
     }
     return camera_info_.height;
@@ -74,7 +82,8 @@ class CVToolbox {
 
   int GetCameraWidth() {
     if (!get_img_info_) {
-      ROS_WARN("Can not get camera width info, because the first frame data wasn't received");
+      RCLCPP_WARN(logger_,
+                  "Can not get camera width info, because the first frame data wasn't received");
       return -1;
     }
     return camera_info_.width;
@@ -82,25 +91,29 @@ class CVToolbox {
 
   int GetCameraMatrix(cv::Mat &k_matrix) {
     if (!get_img_info_) {
-      ROS_WARN("Can not get camera matrix info, because the first frame data wasn't received");
+      RCLCPP_WARN(logger_,
+                  "Can not get camera matrix info, because the first frame data wasn't received");
       return -1;
     }
-    k_matrix = cv::Mat(3, 3, CV_64F, camera_info_.K.data()).clone();
+    k_matrix = cv::Mat(3, 3, CV_64F, reinterpret_cast<void *>(camera_info_.k.data())).clone();
     return 0;
   }
 
   int GetCameraDistortion(cv::Mat &distortion) {
     if (!get_img_info_) {
-      ROS_WARN("Can not get camera distortion info, because the first frame data wasn't received");
+      RCLCPP_WARN(logger_,
+                  "Can not get camera distortion info, because the first frame data wasn't received");
       return -1;
     }
-    distortion = cv::Mat(camera_info_.D.size(), 1, CV_64F, camera_info_.D.data()).clone();
+    distortion = cv::Mat(camera_info_.d.size(), 1, CV_64F,
+                         reinterpret_cast<void *>(camera_info_.d.data())).clone();
     return 0;
   }
 
   int GetWidthOffSet() {
     if (!get_img_info_) {
-      ROS_WARN("Can not get camera width offset info, because the first frame data wasn't received");
+      RCLCPP_WARN(logger_,
+                  "Can not get camera width offset info, because the first frame data wasn't received");
       return -1;
     }
     return camera_info_.roi.x_offset;
@@ -108,44 +121,40 @@ class CVToolbox {
 
   int GetHeightOffSet() {
     if (!get_img_info_) {
-      ROS_WARN("Can not get camera height offset info, because the first frame data wasn't received");
+      RCLCPP_WARN(logger_,
+                  "Can not get camera height offset info, because the first frame data wasn't received");
       return -1;
     }
     return camera_info_.roi.y_offset;
   }
 
-  void ImageCallback(const sensor_msgs::ImageConstPtr &img_msg, const sensor_msgs::CameraInfoConstPtr &camera_info_msg) {
-    if(!get_img_info_){
+  void ImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &img_msg,
+                     const sensor_msgs::msg::CameraInfo::ConstSharedPtr &camera_info_msg) {
+    if (!get_img_info_) {
       camera_info_ = *camera_info_msg;
       capture_begin_ = std::chrono::high_resolution_clock::now();
       get_img_info_ = true;
     } else {
-      capture_time_ = std::chrono::duration<double, std::ratio<1, 1000000>>(std::chrono::high_resolution_clock::now() - capture_begin_).count();
+      capture_time_ = std::chrono::duration<double, std::ratio<1, 1000000>>(
+                          std::chrono::high_resolution_clock::now() - capture_begin_)
+                          .count();
       capture_begin_ = std::chrono::high_resolution_clock::now();
-//      ROS_WARN("capture time: %lf", capture_time_);
     }
     capture_begin_ = std::chrono::high_resolution_clock::now();
-    auto write_begin = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < buffer_state_.size(); ++i) {
+    for (unsigned int i = 0; i < buffer_state_.size(); ++i) {
       if (buffer_state_[i] != BufferState::READ) {
         image_buffer_[i] = cv_bridge::toCvShare(img_msg, "bgr8")->image.clone();
         buffer_state_[i] = BufferState::WRITE;
         lock_.lock();
-        latest_index_ = i;
+        latest_index_ = static_cast<int>(i);
         lock_.unlock();
       }
     }
-    /*
-    ROS_WARN("write time: %lf", std::chrono::duration<double, std::ratio<1, 1000000>>
-        (std::chrono::high_resolution_clock::now() - write_begin).count());*/
   }
-  /**
-   * @brief Get next new image.
-   * @param src_img Output image
-   */
+
   int NextImage(cv::Mat &src_img) {
     if (latest_index_ < 0) {
-      ROS_WARN("Call image when no image received");
+      RCLCPP_WARN(logger_, "Call image when no image received");
       return -1;
     }
     int temp_index = -1;
@@ -153,7 +162,7 @@ class CVToolbox {
     if (buffer_state_[latest_index_] == BufferState::WRITE) {
       buffer_state_[latest_index_] = BufferState::READ;
     } else {
-      ROS_INFO("No image is available");
+      RCLCPP_INFO(logger_, "No image is available");
       lock_.unlock();
       return temp_index;
     }
@@ -166,40 +175,30 @@ class CVToolbox {
 
   void GetCaptureTime(double &capture_time) {
     if (!get_img_info_) {
-      ROS_WARN("The first image doesn't receive");
+      RCLCPP_WARN(logger_, "The first image doesn't receive");
       return;
     }
     if (capture_time_ < 0) {
-      ROS_WARN("The second image doesn't receive");
+      RCLCPP_WARN(logger_, "The second image doesn't receive");
       return;
     }
 
     capture_time = capture_time_;
   }
 
-  /**
-   * @brief Return the image after use
-   * @param return_index Index gets from function 'int NextImage(cv::Mat &src_img)'
-   */
   void ReadComplete(int return_index) {
-
-    if (return_index < 0 || return_index > (buffer_state_.size() - 1)) {
-      ROS_ERROR("Return index error, please check the return_index");
+    if (return_index < 0 || return_index > (static_cast<int>(buffer_state_.size()) - 1)) {
+      RCLCPP_ERROR(logger_, "Return index error, please check the return_index");
       return;
     }
 
-    buffer_state_[return_index] = BufferState::IDLE;
+    buffer_state_[static_cast<size_t>(return_index)] = BufferState::IDLE;
   }
 
-  /**
-   * @brief Highlight the blue or red region of the image.
-   * @param image Input image ref
-   * @return Single channel image
-   */
   cv::Mat DistillationColor(const cv::Mat &src_img, unsigned int color, bool using_hsv) {
-    if(using_hsv) {
+    if (using_hsv) {
       cv::Mat img_hsv;
-      cv::cvtColor(src_img, img_hsv, CV_BGR2HSV);
+      cv::cvtColor(src_img, img_hsv, cv::COLOR_BGR2HSV);
       if (color == 0) {
         cv::Mat img_hsv_blue, img_threshold_blue;
         img_hsv_blue = img_hsv.clone();
@@ -219,7 +218,6 @@ class CVToolbox {
         cv::inRange(img_hsv_red1, red1_low, red1_higher, img_threshold_red1);
         cv::inRange(img_hsv_red2, red2_low, red2_higher, img_threshold_red2);
         img_threshold_red = img_threshold_red1 | img_threshold_red2;
-        //cv::imshow("img_threshold_red", img_threshold_red);
         return img_threshold_red;
       }
     } else {
@@ -235,27 +233,17 @@ class CVToolbox {
         return result_img;
       }
     }
+    return cv::Mat();
   }
-  /**
-   * @brief The wrapper for function cv::findContours
-   * @param binary binary image ref
-   * @return Contours that found.
-   */
+
   std::vector<std::vector<cv::Point>> FindContours(const cv::Mat &binary_img) {
     std::vector<std::vector<cv::Point>> contours;
-    const auto mode = CV_RETR_EXTERNAL;
-    const auto method = CV_CHAIN_APPROX_SIMPLE;
-    cv::findContours(binary_img, contours, mode, method);
+    cv::findContours(binary_img, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
     return contours;
   }
-  /**
-   * @brief Draw rectangle.
-   * @param img The image will be drew on
-   * @param rect The target rectangle
-   * @param color Rectangle color
-   * @param thickness Thickness of the line
-   */
-  void DrawRotatedRect(const cv::Mat &img, const cv::RotatedRect &rect, const cv::Scalar &color, int thickness) {
+
+  void DrawRotatedRect(const cv::Mat &img, const cv::RotatedRect &rect, const cv::Scalar &color,
+                       int thickness) {
     cv::Point2f vertex[4];
 
     cv::Point2f center = rect.center;
@@ -272,7 +260,8 @@ class CVToolbox {
       cv::line(img, vertex[i], vertex[(i + 1) % 4], color, thickness);
   }
 
-  void DrawRotatedRect(const cv::Mat &img, const cv::RotatedRect &rect, const cv::Scalar &color, int thickness, float angle) {
+  void DrawRotatedRect(const cv::Mat &img, const cv::RotatedRect &rect, const cv::Scalar &color,
+                       int thickness, float angle) {
     cv::Point2f vertex[4];
 
     cv::Point2f center = rect.center;
@@ -287,7 +276,10 @@ class CVToolbox {
     for (int i = 0; i < 4; i++)
       cv::line(img, vertex[i], vertex[(i + 1) % 4], color, thickness);
   }
+
  private:
+  rclcpp::Node::SharedPtr node_;
+  rclcpp::Logger logger_{rclcpp::get_logger("cv_toolbox")};
   std::vector<cv::Mat> image_buffer_;
   std::vector<BufferState> buffer_state_;
   int latest_index_;
@@ -298,7 +290,7 @@ class CVToolbox {
 
   image_transport::CameraSubscriber camera_sub_;
   bool get_img_info_;
-  sensor_msgs::CameraInfo camera_info_;
+  sensor_msgs::msg::CameraInfo camera_info_;
 };
 } //namespace roborts_detection
 

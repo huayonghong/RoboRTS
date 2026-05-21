@@ -98,7 +98,7 @@ ParticleFilter::~ParticleFilter() {
     this->sample_set_ptr_array_[i]->samples_vec.clear();
     this->sample_set_ptr_array_[i]->samples_vec.shrink_to_fit();
   }
-  LOG_INFO << "Delete pf";
+  RCLCPP_INFO(localization_logger(), "Delete pf");
 }
 
 void ParticleFilter::InitByGuassian(const Vec3d &mean, const Mat3d &cov) {
@@ -195,7 +195,7 @@ void ParticleFilter::ClusterStatistics(const SampleSetPtr &sample_set_ptr) {
     // Get the cluster label for this sample
     cluster_index = sample_set_ptr->kd_tree_ptr->GetCluster(sample_it.pose);
     if (cluster_index < 0) {
-      LOG_ERROR << "Cluster not found";
+      RCLCPP_ERROR_STREAM(localization_logger(), "Cluster not found");
       return;
     }
     if (cluster_index >= sample_set_ptr->cluster_max_count) {
@@ -257,10 +257,11 @@ void ParticleFilter::ClusterStatistics(const SampleSetPtr &sample_set_ptr) {
             cluster->ws_vec(2) * cluster->ws_vec(2) +
                 cluster->ws_vec(3) * cluster->ws_vec(3)
         ));
-    DLOG_INFO << "cluster: " << cluster->count
-              << "," << cluster->weight
-              << "," << cluster->mean(0)
-              << "," << cluster->mean(1) << "," << cluster->mean(2);
+    RCLCPP_DEBUG_STREAM(localization_logger(),
+                        "cluster: " << cluster->count << ","
+                                    << cluster->weight << "," << cluster->mean(0)
+                                    << "," << cluster->mean(1) << ","
+                                    << cluster->mean(2));
   }
 
   // Compute overall filter stats
@@ -306,7 +307,10 @@ int ParticleFilter::ResampleLimit(int k) {
   int n;
 
   if (k <= 1) {
-    LOG_WARNING_IF(k != 1) << "K < 1 (kd_tree leaf count < 1)";
+    if (k != 1) {
+      RCLCPP_WARN_STREAM(localization_logger(),
+                         "K < 1 (kd_tree leaf count < 1)");
+    }
     return this->max_samples_;
   }
 
@@ -342,7 +346,8 @@ void ParticleFilter::UpdateOmega(double total_weight) {
       set->samples_vec[i].weight /= total_weight;
     }
 
-    DLOG_INFO << "Update running averages of likelihood of samples"; //(Probabilistic Robotics p258)
+    RCLCPP_DEBUG_STREAM(localization_logger(),
+                        "Update running averages of likelihood of samples");
 
     w_avg /= set->sample_count;
     if (this->w_slow_ == 0.0)
@@ -421,10 +426,13 @@ void ParticleFilter::UpdateResample() {
     set_b->kd_tree_ptr->InsertPose(sample_b->pose, sample_b->weight);
 
     // See if we have enough samples yet
-    DLOG_INFO << "Histogram bins num: " << set_b->kd_tree_ptr->GetLeafCount();
+    RCLCPP_DEBUG_STREAM(localization_logger(),
+                        "Histogram bins num: "
+                            << set_b->kd_tree_ptr->GetLeafCount());
     auto kld_resample_num = ResampleLimit(set_b->kd_tree_ptr->GetLeafCount());
     if (set_b->sample_count > kld_resample_num) {
-      LOG_INFO << "KLD-Resample num : " << kld_resample_num;
+      RCLCPP_INFO_STREAM(localization_logger(),
+                         "KLD-Resample num : " << kld_resample_num);
       break;
     }
   }
@@ -474,7 +482,7 @@ void ParticleFilter::InitByGuassianWithRandomHeading(const Vec3d &mean, const Ma
   int i;
   auto sample_set_ptr = sample_set_ptr_array_[current_set_];
 
-  LOG_INFO << "Init with random heading!";
+  RCLCPP_INFO(localization_logger(), "Init with random heading!");
 
   sample_set_ptr->kd_tree_ptr->Clear();
 

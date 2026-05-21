@@ -7,86 +7,85 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  ***************************************************************************/
 
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <cstdio>
+#include <stdio.h>
+
 #include <chrono>
-#include <ros/ros.h>
-#include "roborts_msgs/GimbalAngle.h"
 
-#include "tracking_utility.h"
+#include <rclcpp/rclcpp.hpp>
 
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/highgui/highgui.hpp"
+#include <roborts_msgs/msg/gimbal_angle.hpp>
+
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
 #include "KCFcpp/src/kcftracker.hpp"
+#include "tracking_utility.h"
 
 #define HOG 1
 #define FIXEDWINDOW 1
 #define MULTISCALE 1
 #define LAB 1
+#ifndef ROBORTS_PI
+#define ROBORTS_PI 3.14159265358979323846
+#endif
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> timer;
 typedef std::chrono::duration<float> duration;
 
-using namespace std;
 using namespace cv;
 
-int main(int argc, char** argv)
-{
-  ros::init(argc, argv, "roborts_tracking_node");
-  ros::NodeHandle nh;
-  auto  pub= nh.advertise<roborts_msgs::GimbalAngle>("cmd_gimbal_angle", 30);
-  const char winName[]="My Camera";
+int main(int argc, char **argv) {
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("roborts_tracking_node");
+  auto pub = node->create_publisher<roborts_msgs::msg::GimbalAngle>("cmd_gimbal_angle", 30);
+
+  const char winName[] = "My Camera";
   char message1[100];
   char message2[100];
-  Rect roi(0,0,0,0);
+  Rect roi(0, 0, 0, 0);
   TrackingUtility tu;
-  KCFTracker *tracker = NULL;
+  KCFTracker *tracker = nullptr;
 
-  cv::namedWindow(winName,1);
-  cv::setMouseCallback(winName,TrackingUtility::mouseCallback, (void*)&tu);
-
+  cv::namedWindow(winName, 1);
+  cv::setMouseCallback(winName, TrackingUtility::mouseCallback, reinterpret_cast<void *>(&tu));
 
   VideoCapture video(0);
   int img_width = 640;
   int img_height = 480;
-  video.set(CV_CAP_PROP_FRAME_WIDTH,img_width);
-  video.set(CV_CAP_PROP_FRAME_HEIGHT,img_height);
-  img_width = video.get(CV_CAP_PROP_FRAME_WIDTH);
-  img_height = video.get(CV_CAP_PROP_FRAME_HEIGHT);
+  video.set(cv::CAP_PROP_FRAME_WIDTH, img_width);
+  video.set(cv::CAP_PROP_FRAME_HEIGHT, img_height);
+  img_width = static_cast<int>(video.get(cv::CAP_PROP_FRAME_WIDTH));
+  img_height = static_cast<int>(video.get(cv::CAP_PROP_FRAME_HEIGHT));
 
   if (!video.isOpened()) {
-    cout << "cannot read video!" << endl;
+    fprintf(stderr, "cannot read video!\n");
+    rclcpp::shutdown();
     return -1;
   }
-  //可选BOOSTING, MIL, KCF, TLD, MEDIANFLOW, or GOTURN
 
-  while(ros::ok())
-  {
-    char c = cv::waitKey(10);
-    if(c==27)
-    {
-      if(tracker != NULL)
-      {
+  while (rclcpp::ok()) {
+    rclcpp::spin_some(node);
+    char c = static_cast<char>(cv::waitKey(10));
+    if (c == 27) {
+      if (tracker != nullptr) {
         delete tracker;
-        tracker = NULL;
+        tracker = nullptr;
       }
-      break; // Quit if ESC is pressed
+      break;
     }
 
-    tu.getKey(c); //Internal states will be updated based on key pressed.
+    tu.getKey(c);
 
     Mat frame;
-    if(video.read(frame)){
+    if (video.read(frame)) {
       int dx = 0;
       int dy = 0;
       int yawRate = 0;
@@ -94,17 +93,16 @@ int main(int argc, char** argv)
       timer trackerStartTime, trackerFinishTime;
       duration trackerTimeDiff;
 
-      roborts_msgs::GimbalAngle gimbal_angle;
-      int k = 1920/img_width;
-      switch(tu.getState())
-      {
+      roborts_msgs::msg::GimbalAngle gimbal_angle;
+      int k = 1920 / img_width;
+
+      switch (tu.getState()) {
         case TrackingUtility::STATE_IDLE:
           roi = tu.getROI();
           sprintf(message2, "Please select ROI and press g");
           break;
 
         case TrackingUtility::STATE_INIT:
-          cout << "g pressed, initialize tracker" << endl;
           sprintf(message2, "g pressed, initialize tracker");
           roi = tu.getROI();
           tracker = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB);
@@ -113,50 +111,45 @@ int main(int argc, char** argv)
           break;
 
         case TrackingUtility::STATE_ONGOING:
-          trackerStartTime  = std::chrono::high_resolution_clock::now();
+          trackerStartTime = std::chrono::high_resolution_clock::now();
           roi = tracker->update(frame);
           trackerFinishTime = std::chrono::high_resolution_clock::now();
           trackerTimeDiff = trackerFinishTime - trackerStartTime;
-          sprintf(message2, "Tracking: bounding box update time = %.2f ms\n", trackerTimeDiff.count()*1000.0);
+          snprintf(message2, sizeof(message2), "Tracking: bounding box update time = %.2f ms\n",
+                   trackerTimeDiff.count() * 1000.0);
 
-          // send gimbal speed command
-          dx = (int)(roi.x + roi.width/2  - img_width/2);
-          dy = (int)(roi.y + roi.height/2 - img_height/2);
+          dx = static_cast<int>(roi.x + roi.width / 2 - img_width / 2);
+          dy = static_cast<int>(roi.y + roi.height / 2 - img_height / 2);
 
-          yawRate   = -dx;
+          yawRate = -dx;
           pitchRate = dy;
-          cout<<"yaw_rate:"<<yawRate<<endl;
-          cout<<"pitch_rate:"<<pitchRate<<endl;
-          if(abs(yawRate) < 10/k)
-          {
+
+          if (std::abs(yawRate) < 10 / k) {
             yawRate = 0;
-          }
-          else if(abs(yawRate)>500/k) {
-            yawRate = ((yawRate>0)?1:-1)*500/k;
+          } else if (std::abs(yawRate) > 500 / k) {
+            yawRate = ((yawRate > 0) ? 1 : -1) * 500 / k;
           }
 
-          if(abs(pitchRate) < 10/k)
-          {
+          if (std::abs(pitchRate) < 10 / k) {
             pitchRate = 0;
-          }
-          else if(abs(pitchRate)>500/k) {
-            pitchRate = ((pitchRate>0)?1:-1)*500/k;
+          } else if (std::abs(pitchRate) > 500 / k) {
+            pitchRate = ((pitchRate > 0) ? 1 : -1) * 500 / k;
           }
 
           gimbal_angle.pitch_mode = true;
-          gimbal_angle.pitch_angle = pitchRate/180.*M_PI/110.*k;
+          gimbal_angle.pitch_angle =
+              static_cast<float>(pitchRate / 180. * ROBORTS_PI / 110. * k);
 
           gimbal_angle.yaw_mode = true;
-          gimbal_angle.yaw_angle = yawRate/180.*M_PI/160.*k;
-          pub.publish(gimbal_angle);
+          gimbal_angle.yaw_angle = static_cast<float>(yawRate / 180. * ROBORTS_PI / 160. * k);
+          pub->publish(gimbal_angle);
 
           break;
 
         case TrackingUtility::STATE_STOP:
-          cout << "s pressed, stop tracker" << endl;
           sprintf(message2, "s pressed, stop tracker");
           delete tracker;
-          tracker = NULL;
+          tracker = nullptr;
           tu.stopTracker();
           roi = tu.getROI();
           break;
@@ -164,33 +157,30 @@ int main(int argc, char** argv)
         default:
           break;
       }
-      dx = roi.x + roi.width/2  - img_width/2;
-      dy = roi.y + roi.height/2 - img_height/2;
 
-      cv::circle(frame, Point(img_width/2, img_height/2), 5, cv::Scalar(255,0,0), 2, 8);
-      if(roi.width != 0)
-      {
-        cv::circle(frame, Point(roi.x + roi.width/2, roi.y + roi.height/2), 3, cv::Scalar(0,0,255), 1, 8);
+      dx = roi.x + roi.width / 2 - img_width / 2;
+      dy = roi.y + roi.height / 2 - img_height / 2;
 
-        cv::line(frame,  Point(img_width/2, img_height/2),
-                 Point(roi.x + roi.width/2, roi.y + roi.height/2),
-                 cv::Scalar(0,255,255));
+      cv::circle(frame, Point(img_width / 2, img_height / 2), 5, cv::Scalar(255, 0, 0), 2, 8);
+      if (roi.width != 0) {
+        cv::circle(frame, Point(roi.x + roi.width / 2, roi.y + roi.height / 2), 3, cv::Scalar(0, 0, 255), 1, 8);
+
+        cv::line(frame, Point(img_width / 2, img_height / 2),
+                 Point(roi.x + roi.width / 2, roi.y + roi.height / 2), cv::Scalar(0, 255, 255));
       }
 
-      cv::rectangle(frame, roi, cv::Scalar(0,255,0), 1, 8, 0 );
-      sprintf(message1,"dx=%04d, dy=%04d",dx, dy);
-      putText(frame, message1, Point2f(20,30), FONT_HERSHEY_SIMPLEX, 0.5,  Scalar(0,255,0));
-      putText(frame, message2, Point2f(20,60), FONT_HERSHEY_SIMPLEX, 0.5,  Scalar(0,255,0));
+      cv::rectangle(frame, roi, cv::Scalar(0, 255, 0), 1, 8, 0);
+      snprintf(message1, sizeof(message1), "dx=%04d, dy=%04d", dx, dy);
+      putText(frame, message1, Point2f(20, 30), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
+      putText(frame, message2, Point2f(20, 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
       cv::imshow(winName, frame);
-
     }
-
   }
 
-  if(tracker)
-  {
+  if (tracker) {
     delete tracker;
   }
 
+  rclcpp::shutdown();
   return 0;
 }

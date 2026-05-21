@@ -59,10 +59,9 @@
 #include <complex>
 #include <iterator>
 
-#include <nav_msgs/Path.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/PoseArray.h>
-#include <tf/tf.h>
+#include <nav_msgs/msg/path.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/pose_array.hpp>
 
 #include "local_planner/obstacle.h"
 #include "local_planner/data_base.h"

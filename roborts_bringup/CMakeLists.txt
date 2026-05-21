@@ -1,19 +1,12 @@
+cmake_minimum_required(VERSION 3.5)
 project(roborts_bringup)
-cmake_minimum_required(VERSION 3.1)
 
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake_module)
-set(CMAKE_BUILD_TYPE Release)
+find_package(ament_cmake REQUIRED)
 
-find_package(catkin REQUIRED COMPONENTS
-  roborts_base
-  roborts_common
-  roborts_localization
-  roborts_costmap
-  roborts_msgs
-  roborts_planning
-  )
+install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
+install(DIRECTORY maps/ DESTINATION share/${PROJECT_NAME}/maps)
+install(DIRECTORY rviz/ DESTINATION share/${PROJECT_NAME}/rviz)
+install(DIRECTORY worlds/ DESTINATION share/${PROJECT_NAME}/worlds)
+install(DIRECTORY scripts/ DESTINATION share/${PROJECT_NAME}/scripts)
 
-catkin_package()
-
-
+ament_package()

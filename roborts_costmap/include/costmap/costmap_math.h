@@ -52,7 +52,7 @@
 #include <math.h>
 #include <algorithm>
 #include <vector>
-#include <geometry_msgs/Point.h>
+#include <geometry_msgs/msg/point.hpp>
 namespace roborts_costmap {
 /** @brief Return -1 if x < 0, +1 otherwise. */
 inline double sign(double x) {
@@ -70,8 +70,8 @@ inline double distance(double x0, double y0, double x1, double y1) {
 
 double Distance2Line(double pX, double pY, double x0, double y0, double x1, double y1);
 
-bool Intersect(std::vector<geometry_msgs::Point> &polygon, float testx, float testy);
+bool Intersect(std::vector<geometry_msgs::msg::Point> &polygon, float testx, float testy);
 
-bool Intersect(std::vector<geometry_msgs::Point> &polygon1, std::vector<geometry_msgs::Point> &polygon2);
+bool Intersect(std::vector<geometry_msgs::msg::Point> &polygon1, std::vector<geometry_msgs::msg::Point> &polygon2);
 }//namespace roborts_costmap
 

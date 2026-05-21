@@ -64,8 +64,8 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/pointer_cast.hpp>
 
-#include <geometry_msgs/Polygon.h>
-#include <ros/ros.h>
+#include <geometry_msgs/msg/polygon.hpp>
+#include <cassert>
 
 #include "local_planner/distance_calculation.h"
 
@@ -176,7 +176,7 @@ class Obstacle {
    * @brief Convert obstacle to geometry_msgs::Polygon type
    * @param polygon Input and output, result after convert.
    */
-  virtual void ToPolygonMsg(geometry_msgs::Polygon &polygon) = 0;
+  virtual void ToPolygonMsg(geometry_msgs::msg::Polygon &polygon) = 0;
 
  protected:
 
@@ -258,7 +258,7 @@ class PointObstacle : public Obstacle {
     return pos_;
   }
 
-  virtual void ToPolygonMsg(geometry_msgs::Polygon &polygon) {
+  virtual void ToPolygonMsg(geometry_msgs::msg::Polygon &polygon) {
     polygon.points.resize(1);
     polygon.points.front().x = pos_.x();
     polygon.points.front().y = pos_.y();
@@ -349,7 +349,7 @@ class LineObstacle : public Obstacle {
     CalcCentroid();
   }
 
-  virtual void ToPolygonMsg(geometry_msgs::Polygon &polygon) {
+  virtual void ToPolygonMsg(geometry_msgs::msg::Polygon &polygon) {
     polygon.points.resize(2);
     polygon.points.front().x = start_.x();
     polygon.points.front().y = start_.y();
@@ -427,16 +427,16 @@ class PolygonObstacle : public Obstacle {
   virtual Eigen::Vector2d GetClosestPoint(const Eigen::Vector2d &position) const;
 
   virtual const Eigen::Vector2d &GetCentroid() const {
-    ROS_ASSERT_MSG(finalized_, "Finalize the polygon after all vertices are added.");
+    assert(finalized_ && "Finalize the polygon after all vertices are added.");
     return centroid_;
   }
 
   virtual std::complex<double> GetCentroidCplx() const {
-    ROS_ASSERT_MSG(finalized_, "Finalize the polygon after all vertices are added.");
+    assert(finalized_ && "Finalize the polygon after all vertices are added.");
     return std::complex<double>(centroid_.coeffRef(0), centroid_.coeffRef(1));
   }
 
-  virtual void ToPolygonMsg(geometry_msgs::Polygon &polygon);
+  virtual void ToPolygonMsg(geometry_msgs::msg::Polygon &polygon);
 
   const Point2dContainer &Vertices() const {
     return vertices_;

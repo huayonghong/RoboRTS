@@ -32,7 +32,7 @@
 #include "../armor_detection_base.h"
 
 #include "proto/constraint_set.pb.h"
-#include "constraint_set.h"
+
 namespace roborts_detection {
 
 using roborts_common::ErrorCode;
@@ -249,9 +249,6 @@ class ConstraintSet : public ArmorDetectionBase {
   float red_thread_;
 
   bool thread_running_;
-
-  //ros
-  ros::NodeHandle nh;
 };
 
 roborts_common::REGISTER_ALGORITHM(ArmorDetectionBase, "constraint_set", ConstraintSet, std::shared_ptr<CVToolbox>);

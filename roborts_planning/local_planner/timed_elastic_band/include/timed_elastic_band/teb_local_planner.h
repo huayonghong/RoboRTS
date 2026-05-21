@@ -75,6 +75,13 @@
 #include "local_planner/obstacle.h"
 #include "local_planner/robot_footprint_model.h"
 
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+#include <nav_msgs/msg/path.hpp>
+#include <roborts_msgs/msg/twist_accel.hpp>
+#include <tf2_ros/buffer.h>
+
 #include "timed_elastic_band/teb_vertex_pose.h"
 #include "timed_elastic_band/teb_optimal.h"
 #include "timed_elastic_band/proto/timed_elastic_band.pb.h"
@@ -88,12 +95,12 @@ class TebLocalPlanner : public LocalPlannerBase {
  public:
   TebLocalPlanner();
   ~TebLocalPlanner();
-  roborts_common::ErrorInfo ComputeVelocityCommands(roborts_msgs::TwistAccel &cmd_vel) override;
+  roborts_common::ErrorInfo ComputeVelocityCommands(roborts_msgs::msg::TwistAccel &cmd_vel) override;
   bool IsGoalReached () override;
   roborts_common::ErrorInfo Initialize (std::shared_ptr<roborts_costmap::CostmapInterface> local_cost,
-                   std::shared_ptr<tf::TransformListener> tf, LocalVisualizationPtr visual) override;
-  bool SetPlan(const nav_msgs::Path& plan, const geometry_msgs::PoseStamped& goal) override ;
-  bool GetPlan(const nav_msgs::Path& plan);
+                   std::shared_ptr<tf2_ros::Buffer> tf, LocalVisualizationPtr visual) override;
+  bool SetPlan(const nav_msgs::msg::Path& plan, const geometry_msgs::msg::PoseStamped& goal) override ;
+  bool GetPlan(const nav_msgs::msg::Path& plan);
   bool SetPlanOrientation();
   void RegisterErrorCallBack(ErrorInfoCallback error_callback) override;
 
@@ -117,8 +124,8 @@ class TebLocalPlanner : public LocalPlannerBase {
 
   double ConvertTransRotVelToSteeringAngle(double v, double omega, double wheelbase, double min_turning_radius = 0) const;
 
-  //! Tf listener
-  std::weak_ptr<tf::TransformListener> tf_;
+  //! TF buffer for transforms (weak; owned by planner node).
+  std::weak_ptr<tf2_ros::Buffer> tf_;
   //! Local cost map
   std::weak_ptr<roborts_costmap::CostmapInterface> local_cost_;
 
@@ -143,25 +150,25 @@ class TebLocalPlanner : public LocalPlannerBase {
   //! Robot odom info
   OdomInfo odom_info_;
   //! Global planner's solve
-  nav_msgs::Path global_plan_, temp_plan_;
+  nav_msgs::msg::Path global_plan_, temp_plan_;
   //! Last velocity
-  roborts_msgs::TwistAccel last_cmd_;
+  roborts_msgs::msg::TwistAccel last_cmd_;
   //! Robot current velocity
-  geometry_msgs::Twist robot_current_vel_;
+  geometry_msgs::msg::Twist robot_current_vel_;
   //! Robot current pose
   DataBase robot_pose_;
   //! Robot current pose
-  tf::Stamped<tf::Pose> robot_tf_pose_;
+  geometry_msgs::msg::PoseStamped robot_tf_pose_;
   //! Robot goal
   DataBase robot_goal_;
   //! Visualize ptr use to visualize trajectory after optimize
   LocalVisualizationPtr visual_;
   //! Tf transform from global planner frame to optimal frame
-  tf::StampedTransform plan_to_global_transform_;
+  geometry_msgs::msg::TransformStamped plan_to_global_transform_;
   //! Way point after tf transform
   std::vector<DataBase> transformed_plan_;
   //! When no global planner give the global plan, use local goal express robot end point
-  tf::Stamped<tf::Pose> local_goal_;
+  geometry_msgs::msg::PoseStamped local_goal_;
   //! Error info when running teb local planner algorithm
   roborts_common::ErrorInfo teb_error_info_;
   //! Call back function use to return error info

@@ -1,96 +1,83 @@
+/****************************************************************************
+ *  Copyright (C) 2019 RoboMaster.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ ***************************************************************************/
+
 #ifndef ROBORTS_DECISION_CHASSIS_EXECUTOR_H
 #define ROBORTS_DECISION_CHASSIS_EXECUTOR_H
-#include <ros/ros.h>
-#include <actionlib/client/simple_action_client.h>
 
-#include "roborts_msgs/GlobalPlannerAction.h"
-#include "roborts_msgs/LocalPlannerAction.h"
-#include "roborts_msgs/TwistAccel.h"
-#include "geometry_msgs/Twist.h"
+#include <mutex>
+#include <memory>
+
+#include <action_msgs/msg/goal_status.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
+#include <roborts_msgs/action/global_planner.hpp>
+#include <roborts_msgs/action/local_planner.hpp>
+#include <roborts_msgs/msg/twist_accel.hpp>
 
 #include "../behavior_tree/behavior_state.h"
 
-namespace roborts_decision{
-/***
- * @brief Chassis Executor to execute different abstracted task for chassis module
- */
-class ChassisExecutor{
+namespace roborts_decision {
 
-  typedef actionlib::SimpleActionClient<roborts_msgs::GlobalPlannerAction> GlobalActionClient;
-  typedef actionlib::SimpleActionClient<roborts_msgs::LocalPlannerAction> LocalActionClient;
+class ChassisExecutor {
  public:
-  /**
-   * @brief Chassis execution mode for different tasks
-   */
-  enum class ExcutionMode{
-    IDLE_MODE,            ///< Default idle mode with no task
-    GOAL_MODE,            ///< Goal-targeted task mode using global and local planner
-    SPEED_MODE,           ///< Velocity task mode
-    SPEED_WITH_ACCEL_MODE ///< Velocity with acceleration task mode
+  using GlobalPlannerAction = roborts_msgs::action::GlobalPlanner;
+  using LocalPlannerAction = roborts_msgs::action::LocalPlanner;
+  using GoalHandleGlobal = rclcpp_action::ClientGoalHandle<GlobalPlannerAction>;
+
+  enum class ExcutionMode {
+    IDLE_MODE,
+    GOAL_MODE,
+    SPEED_MODE,
+    SPEED_WITH_ACCEL_MODE
   };
-  /**
-   * @brief Constructor of ChassisExecutor
-   */
-  ChassisExecutor();
+
+  explicit ChassisExecutor(rclcpp::Node::SharedPtr node);
   ~ChassisExecutor() = default;
-  /**
-   * @brief Execute the goal-targeted task using global and local planner with actionlib
-   * @param goal Given taget goal
-   */
-  void Execute(const geometry_msgs::PoseStamped &goal);
-  /**
-   * @brief Execute the velocity task with publisher
-   * @param twist Given velocity
-   */
-  void Execute(const geometry_msgs::Twist &twist);
-  /**
-   * @brief Execute the velocity with acceleration task with publisher
-   * @param twist_accel Given velocity with acceleration
-   */
-  void Execute(const roborts_msgs::TwistAccel &twist_accel);
-  /**
-   * @brief Update the current chassis executor state
-   * @return Current chassis executor state(same with behavior state)
-   */
+
+  void Execute(const geometry_msgs::msg::PoseStamped &goal);
+  void Execute(const geometry_msgs::msg::Twist &twist);
+  void Execute(const roborts_msgs::msg::TwistAccel &twist_accel);
+
   BehaviorState Update();
-  /**
-   * @brief Cancel the current task and deal with the mode transition
-   */
   void Cancel();
 
  private:
-  /***
-   * @brief Global planner actionlib feedback callback function to send the global planner path to local planner
-   * @param global_planner_feedback  Global planner actionlib feedback, which mainly consists of global planner path output
-   */
-  void GlobalPlannerFeedbackCallback(const roborts_msgs::GlobalPlannerFeedbackConstPtr& global_planner_feedback);
-  //! execution mode of the executor
+  void GlobalPlannerFeedbackCallback(
+      GoalHandleGlobal::SharedPtr,
+      const std::shared_ptr<const GlobalPlannerAction::Feedback> feedback);
+
+  rclcpp::Node::SharedPtr node_;
+
   ExcutionMode execution_mode_;
-  //! execution state of the executor (same with behavior state)
   BehaviorState execution_state_;
 
-  //! global planner actionlib client
-  actionlib::SimpleActionClient<roborts_msgs::GlobalPlannerAction> global_planner_client_;
-  //! local planner actionlib client
-  actionlib::SimpleActionClient<roborts_msgs::LocalPlannerAction> local_planner_client_;
-  //! global planner actionlib goal
-  roborts_msgs::GlobalPlannerGoal global_planner_goal_;
-  //! local planner actionlib goal
-  roborts_msgs::LocalPlannerGoal local_planner_goal_;
+  std::mutex goal_mutex_;
+  rclcpp_action::Client<GlobalPlannerAction>::SharedPtr global_planner_client_;
+  rclcpp_action::Client<LocalPlannerAction>::SharedPtr local_planner_client_;
+  GoalHandleGlobal::SharedPtr global_goal_handle_;
 
-  //! velocity control publisher in ROS
-  ros::Publisher cmd_vel_pub_;
-  //! zero twist in form of ROS geometry_msgs::Twist
-  geometry_msgs::Twist zero_twist_;
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
+  geometry_msgs::msg::Twist zero_twist_;
 
-  //! velocity with accel publisher in ROS
-  ros::Publisher cmd_vel_acc_pub_;
-  //! zero twist with acceleration in form of ROS roborts_msgs::TwistAccel
-  roborts_msgs::TwistAccel zero_twist_accel_;
-
-
+  rclcpp::Publisher<roborts_msgs::msg::TwistAccel>::SharedPtr cmd_vel_acc_pub_;
+  roborts_msgs::msg::TwistAccel zero_twist_accel_;
 };
-}
+} // namespace roborts_decision
 
-
-#endif //ROBORTS_DECISION_CHASSIS_EXECUTOR_H
+#endif // ROBORTS_DECISION_CHASSIS_EXECUTOR_H

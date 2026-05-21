@@ -98,7 +98,7 @@ bool AmclMap::CheckMapCoordsValid(const int &i, const int &j) {
 	return ((i >= 0) && (i < this->size_x_) && (j >= 0) && (j < this->size_y_));
 };
 
-void AmclMap::ConvertFromMsg(const nav_msgs::OccupancyGrid &map_msg) {
+void AmclMap::ConvertFromMsg(const nav_msgs::msg::OccupancyGrid &map_msg) {
 	this->size_x_ = map_msg.info.width;
 	this->size_y_ = map_msg.info.height;
 	this->scale_ = map_msg.info.resolution;
@@ -108,7 +108,9 @@ void AmclMap::ConvertFromMsg(const nav_msgs::OccupancyGrid &map_msg) {
 	this->max_x_distance_ = static_cast<double>(this->size_x_) * scale_;
 	this->max_y_distance_ = static_cast<double>(this->size_y_) * scale_;
 	this->diag_distance_ = math::EuclideanDistance<double>(0, 0, max_x_distance_, max_y_distance_);
-	LOG_INFO << "max x " << max_x_distance_ << " max y " << max_y_distance_;
+	RCLCPP_INFO_STREAM(localization_logger(),
+	                   "max x " << max_x_distance_
+	                            << " max y " << max_y_distance_);
 
 	for (int i = 0; i < this->size_x_ * this->size_y_; i++) {
 		auto tmp_msg = static_cast<int>(map_msg.data[i]);
@@ -142,7 +144,7 @@ double AmclMap::GetCellOccDistByCoord(unsigned i, unsigned j) {
 	return GetCellOccDistByIndex(ComputeCellIndexByMap(i, j));
 }
 
-const nav_msgs::OccupancyGrid &AmclMap::ConvertDistanMaptoMapMsg() {
+const nav_msgs::msg::OccupancyGrid &AmclMap::ConvertDistanMaptoMapMsg() {
 	if (!distance_map_init_) {
 		distance_map_msg_.header.frame_id = "map";
 		distance_map_msg_.info.width = this->size_x_;

@@ -17,6 +17,11 @@
 #include <Eigen/Core>
 #include <opencv2/core/eigen.hpp>
 
+#include <stdexcept>
+
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <rclcpp/rclcpp.hpp>
+
 #include "constraint_set.h"
 
 #include "timer/timer.h"
@@ -43,10 +48,15 @@ ConstraintSet::ConstraintSet(std::shared_ptr<CVToolbox> cv_toolbox):
 void ConstraintSet::LoadParam() {
   //read parameters
   ConstraintSetConfig constraint_set_config_;
-  std::string file_name = ros::package::getPath("roborts_detection") + \
+  std::string file_name =
+      ament_index_cpp::get_package_share_directory("roborts_detection") +
       "/armor_detection/constraint_set/config/constraint_set.prototxt";
   bool read_state = roborts_common::ReadProtoFromTextFile(file_name, &constraint_set_config_);
-  ROS_ASSERT_MSG(read_state, "Cannot open %s", file_name.c_str());
+  if (!read_state) {
+    RCLCPP_FATAL(rclcpp::get_logger("constraint_set"),
+                 "Cannot open %s", file_name.c_str());
+    throw std::runtime_error("constraint_set prototxt unreadable");
+  }
 
   enable_debug_ = constraint_set_config_.enable_debug();
   enemy_color_ = constraint_set_config_.enemy_color();
@@ -77,9 +87,12 @@ void ConstraintSet::LoadParam() {
   int get_distortion_state = -1;
 
   while ((get_intrinsic_state < 0) || (get_distortion_state < 0)) {
-    ROS_WARN("Wait for camera driver launch %d", get_intrinsic_state);
+    RCLCPP_WARN(rclcpp::get_logger("constraint_set"),
+                "Wait for camera driver launch %d", get_intrinsic_state);
     usleep(50000);
-    ros::spinOnce();
+    if (cv_toolbox_->GetNode()) {
+      rclcpp::spin_some(cv_toolbox_->GetNode());
+    }
     get_intrinsic_state = cv_toolbox_->GetCameraMatrix(intrinsic_matrix_);
     get_distortion_state = cv_toolbox_->GetCameraDistortion(distortion_coeffs_);
   }
@@ -132,7 +145,7 @@ ErrorInfo ConstraintSet::DetectArmor(bool &detected, cv::Point3f &target_3d) {
 
   auto detection_begin = std::chrono::high_resolution_clock::now();
 
-    cv::cvtColor(src_img_, gray_img_, CV_BGR2GRAY);
+    cv::cvtColor(src_img_, gray_img_, cv::COLOR_BGR2GRAY);
     if (enable_debug_) {
       show_lights_before_filter_ = src_img_.clone();
       show_lights_after_filter_ = src_img_.clone();
@@ -159,7 +172,7 @@ ErrorInfo ConstraintSet::DetectArmor(bool &detected, cv::Point3f &target_3d) {
   lights.clear();
   armors.clear();
   cv_toolbox_->ReadComplete(read_index_);
-  ROS_INFO("read complete");
+  RCLCPP_DEBUG(rclcpp::get_logger("constraint_set"), "read complete");
   detection_time_ = std::chrono::duration<double, std::ratio<1, 1000000>>
       (std::chrono::high_resolution_clock::now() - detection_begin).count();
 
@@ -173,16 +186,16 @@ void ConstraintSet::DetectLights(const cv::Mat &src, std::vector<cv::RotatedRect
   cv::Mat binary_brightness_img, binary_light_img, binary_color_img;
   if(using_hsv_) {
     binary_color_img = cv_toolbox_->DistillationColor(src, enemy_color_, using_hsv_);
-    cv::threshold(gray_img_, binary_brightness_img, color_thread_, 255, CV_THRESH_BINARY);
+    cv::threshold(gray_img_, binary_brightness_img, color_thread_, 255, cv::THRESH_BINARY);
   }else {
     auto light = cv_toolbox_->DistillationColor(src, enemy_color_, using_hsv_);
-    cv::threshold(gray_img_, binary_brightness_img, color_thread_, 255, CV_THRESH_BINARY);
+    cv::threshold(gray_img_, binary_brightness_img, color_thread_, 255, cv::THRESH_BINARY);
     float thresh;
     if (enemy_color_ == BLUE)
       thresh = blue_thread_;
     else
       thresh = red_thread_;
-    cv::threshold(light, binary_color_img, thresh, 255, CV_THRESH_BINARY);
+    cv::threshold(light, binary_color_img, thresh, 255, cv::THRESH_BINARY);
     if(enable_debug_)
       cv::imshow("light", light);
   }

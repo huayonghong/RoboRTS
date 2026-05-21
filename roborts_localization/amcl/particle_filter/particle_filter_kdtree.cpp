@@ -37,6 +37,8 @@
  */
 
 #include <queue>
+
+#include "log.h"
 #include "particle_filter_kdtree.h"
 
 namespace roborts_localization{
@@ -49,7 +51,7 @@ ParticleFilterKDTree::~ParticleFilterKDTree() {
 	}
 	nodes_ptr_vec_.clear();
 	nodes_ptr_vec_.shrink_to_fit();
-	DLOG_INFO << "Destroy kd tree";
+	RCLCPP_DEBUG_STREAM(localization_logger(), "Destroy kd tree");
 }
 
 void ParticleFilterKDTree::InitializeByMaxSize(int max_size) {
@@ -162,7 +164,7 @@ int ParticleFilterKDTree::GetCluster(Vec3d pose) {
 
 	node_ptr = FindNode(root_ptr_, key);
 	if (node_ptr == nullptr) {
-		LOG_WARNING << "Cluster not found";
+		RCLCPP_WARN_STREAM(localization_logger(), "Cluster not found");
 		return -1;
 	}
 	return node_ptr->cluster;
@@ -223,7 +225,8 @@ void ParticleFilterKDTree::Cluster() {
 	}
 	queue.reset();
 //	delete (queue);
-	DLOG_INFO << "Cluster count = " << cluster_count;
+	RCLCPP_DEBUG_STREAM(localization_logger(),
+	                    "Cluster count = " << cluster_count);
 }
 
 void ParticleFilterKDTree::ClusterNode(ParticleFilterKDTreeNode *node_ptr, int depth) {

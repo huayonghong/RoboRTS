@@ -7,7 +7,7 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
@@ -18,22 +18,23 @@
 #ifndef ROBORTS_DETECTION_ARMOR_DETECTION_NODE_H
 #define ROBORTS_DETECTION_ARMOR_DETECTION_NODE_H
 
-#include <thread>
-#include <mutex>
 #include <condition_variable>
-#include <boost/thread.hpp>
+#include <memory>
+#include <mutex>
+#include <thread>
 
-#include <ros/ros.h>
-#include "actionlib/server/simple_action_server.h"
-#include "roborts_msgs/GimbalAngle.h"
-#include "roborts_msgs/GimbalRate.h"
-#include "roborts_msgs/ArmorDetectionAction.h"
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
+
+#include <roborts_msgs/action/armor_detection.hpp>
+#include <roborts_msgs/msg/gimbal_angle.hpp>
 
 #include "alg_factory/algorithm_factory.h"
 #include "io/io.h"
 #include "state/node_state.h"
 
-#include "cv_toolbox.h"
+#include "../util/cv_toolbox.h"
 
 #include "armor_detection_base.h"
 #include "proto/armor_detection.pb.h"
@@ -44,50 +45,33 @@ namespace roborts_detection {
 
 using roborts_common::NodeState;
 using roborts_common::ErrorInfo;
+using ArmorDetectionAction = roborts_msgs::action::ArmorDetection;
+using GoalHandleArmor = rclcpp_action::ServerGoalHandle<ArmorDetectionAction>;
 
-class ArmorDetectionNode {
+class ArmorDetectionNode : public rclcpp::Node {
  public:
-  explicit ArmorDetectionNode();
-  /**
-   * @brief Initializing armor detection algorithm.
-   * @return Return the error information.
-   */
+  ArmorDetectionNode();
   ErrorInfo Init();
-  /**
-   * @brief Actionlib server call back function.
-   * @param data Command for control the algorithm thread.
-   */
-  void ActionCB(const roborts_msgs::ArmorDetectionGoal::ConstPtr &data);
-  /**
-   * @brief Starting the armor detection thread.
-   */
+  void ExecuteActionGoal(std::shared_ptr<GoalHandleArmor> goal_handle);
   void StartThread();
-  /**
-   * @brief Pausing the armor detection thread when received command 2 in action_lib callback function.
-   */
   void PauseThread();
-  /**
-   * @brief Stopping armor detection thread.
-   */
   void StopThread();
-  /**
-   * @brief Executing the armor detection algorithm.
-   */
   void ExecuteLoop();
-  /**
-   * @brief Publishing enemy pose information that been calculated by the armor detection algorithm.
-   */
   void PublishMsgs();
   ~ArmorDetectionNode();
- protected:
+
  private:
+  rclcpp_action::GoalResponse HandleGoal(const rclcpp_action::GoalUUID &uuid,
+                                          std::shared_ptr<const ArmorDetectionAction::Goal> goal);
+  rclcpp_action::CancelResponse HandleCancel(const std::shared_ptr<GoalHandleArmor> goal_handle);
+  void HandleAccepted(const std::shared_ptr<GoalHandleArmor> goal_handle);
+
   std::shared_ptr<ArmorDetectionBase> armor_detector_;
   std::thread armor_detection_thread_;
   unsigned int max_rotating_fps_;
   unsigned int min_rotating_detected_count_;
   unsigned int undetected_armor_delay_;
 
-  //! state and error
   NodeState node_state_;
   ErrorInfo error_info_;
   bool initialized_;
@@ -96,22 +80,19 @@ class ArmorDetectionNode {
   std::condition_variable condition_var_;
   unsigned int undetected_count_;
 
-  //! enemy information
   double x_;
   double y_;
   double z_;
   bool detected_enemy_;
   unsigned long demensions_;
 
-  //ROS
-  ros::NodeHandle nh_;
-  ros::NodeHandle enemy_nh_;
-  ros::Publisher enemy_info_pub_;
-  std::shared_ptr<CVToolbox> cv_toolbox_;
-  actionlib::SimpleActionServer<roborts_msgs::ArmorDetectionAction> as_;
-  roborts_msgs::GimbalAngle gimbal_angle_;
+  rclcpp::Publisher<roborts_msgs::msg::GimbalAngle>::SharedPtr enemy_info_pub_;
 
-  //! control model
+  std::shared_ptr<CVToolbox> cv_toolbox_;
+  rclcpp_action::Server<ArmorDetectionAction>::SharedPtr action_server_;
+
+  roborts_msgs::msg::GimbalAngle gimbal_angle_;
+
   GimbalContrl gimbal_control_;
 };
 } //namespace roborts_detection

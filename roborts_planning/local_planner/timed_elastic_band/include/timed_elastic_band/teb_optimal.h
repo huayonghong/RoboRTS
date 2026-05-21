@@ -63,7 +63,8 @@
 #include <boost/thread.hpp>
 #include <boost/thread/once.hpp>
 
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
 
 #include <g2o/core/sparse_optimizer.h>
 #include <g2o/core/block_solver.h>
@@ -118,10 +119,10 @@ class TebOptimal : public OptimalBase {
                   RobotFootprintModelPtr robot_model = boost::make_shared<PointRobotFootprint>(),
                   LocalVisualizationPtr visual = LocalVisualizationPtr(),const ViaPointContainer* via_points = NULL);
 
-  bool Optimal(std::vector<DataBase>& initial_plan, const geometry_msgs::Twist* start_vel = NULL,
+  bool Optimal(std::vector<DataBase>& initial_plan, const geometry_msgs::msg::Twist* start_vel = NULL,
                bool free_goal_vel = false, bool micro_control = false) override;
 
-  bool Optimal(const DataBase& start, const DataBase& goal, const geometry_msgs::Twist* start_vel = NULL,
+  bool Optimal(const DataBase& start, const DataBase& goal, const geometry_msgs::msg::Twist* start_vel = NULL,
                bool free_goal_vel=false, bool micro_control = false) override;
 
   bool GetVelocity(roborts_common::ErrorInfo &error_info, double& vx, double& vy, double& omega,
@@ -134,9 +135,9 @@ class TebOptimal : public OptimalBase {
 
   virtual void Visualize();
 
-  void SetVelocityStart(const geometry_msgs::Twist& vel_start);
+  void SetVelocityStart(const geometry_msgs::msg::Twist& vel_start);
 
-  void SetVelocityEnd(const geometry_msgs::Twist& vel_end);
+  void SetVelocityEnd(const geometry_msgs::msg::Twist& vel_end);
 
 
   void SetVelocityGoalFree() {
@@ -192,7 +193,7 @@ class TebOptimal : public OptimalBase {
   inline void ExtractVelocity(const DataBase& pose1, const DataBase& pose2, double dt,
                               double& vx, double& vy, double& omega) const;
 
-  void GetVelocityProfile(std::vector<geometry_msgs::Twist>& velocity_profile) const;
+  void GetVelocityProfile(std::vector<geometry_msgs::msg::Twist>& velocity_profile) const;
 
   //void GetFullTrajectory(std::vector<TrajectoryPointMsg>& trajectory) const;
 
@@ -244,8 +245,8 @@ class TebOptimal : public OptimalBase {
   RobotFootprintModelPtr robot_model_;
   TebVertexConsole vertex_console_;
   boost::shared_ptr<g2o::SparseOptimizer> optimizer_;
-  std::pair<bool, geometry_msgs::Twist> vel_start_;
-  std::pair<bool, geometry_msgs::Twist> vel_end_;
+  std::pair<bool, geometry_msgs::msg::Twist> vel_start_;
+  std::pair<bool, geometry_msgs::msg::Twist> vel_end_;
 
   Robot        robot_info_;
   Config       param_config_;

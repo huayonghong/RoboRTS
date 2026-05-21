@@ -39,7 +39,7 @@
 #ifndef ROBORTS_LOCALIZATION_AMCL_SENSORS_SENSOR_LASER_H
 #define ROBORTS_LOCALIZATION_AMCL_SENSORS_SENSOR_LASER_H
 
-#include <sensor_msgs/LaserScan.h>
+#include <sensor_msgs/msg/laser_scan.hpp>
 
 #include "particle_filter/particle_filter.h"
 #include "localization_math.h"

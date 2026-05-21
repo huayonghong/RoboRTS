@@ -54,206 +54,137 @@
 
 #include <Eigen/Core>
 #include <Eigen/StdVector>
+#include <geometry_msgs/msg/polygon_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <memory>
+#include <string>
 #include <thread>
+#include <tf2_ros/buffer.h>
 
-#include <geometry_msgs/PolygonStamped.h>
-#include <geometry_msgs/PoseStamped.h>
-#include "map_common.h"
+#include "costmap_layer.h"
 #include "footprint.h"
+#include "inflation_layer.h"
 #include "layer.h"
 #include "layered_costmap.h"
-#include "costmap_layer.h"
-#include "static_layer.h"
+#include "map_common.h"
 #include "obstacle_layer.h"
-#include "inflation_layer.h"
+#include "static_layer.h"
 
 namespace roborts_costmap {
 
-/**
- * @brief Robot pose with time stamp and global frame id.
- */
 typedef struct {
-  ros::Time time;
+  rclcpp::Time time;
   std::string frame_id;
   Eigen::Vector3f position;
   Eigen::Matrix3f rotation;
 } RobotPose;
 
-/**
- * @brief class Costmap Interface for users.
- */
 class CostmapInterface {
  public:
   /**
-   * @brief Constructor
-   * @param map_name The costmap name
-   * @param tf The tf listener
-   * @param map_update_frequency The frequency to update costmap
+   * @param map_name Name prefix for ROS topics and layered plugin namespaces.
+   * @param node ROS 2 node for publishers, timers, and layer subscriptions (must stay alive until destruction).
+   * @param tf_buffer TF buffer (typically backed by tf2_ros::TransformListener on the node's executor).
+   * @param config_file Path passed to Proto config resolvers (possibly relative within the package share prefix).
    */
-  CostmapInterface(std::string map_name, tf::TransformListener& tf, std::string config_file);
+  CostmapInterface(std::string map_name, rclcpp::Node::SharedPtr node, tf2_ros::Buffer &tf_buffer,
+                   std::string config_file);
   ~CostmapInterface();
-  /**
-   * @brief Start the costmap processing.
-   */
+
+  /** @brief Return the ROS 2 node used by this interface (publisher, timers, layer subs). */
+  rclcpp::Node::SharedPtr GetNode() const { return node_; }
+
   void Start();
-  /**
-   * @breif Stop the costmap.
-   */
   void Stop();
-  /**
-   * @breif If costmap is stoped or paused, it can be resumed.
-   */
   void Resume();
-  /**
-   * @breif The core function updating the costmap with all layers.
-   */
   void UpdateMap();
-  /**
-   * @brief Function to pause the costmap disabling the update.
-   */
   void Pause();
-  /**
-   * @breif Reset costmap with every layer reset.
-   */
   void ResetLayers();
-  /**
-   * @brief Tell whether the costmap is updated.
-   * @return True if every layer is current.
-   */
+
   bool IsCurrent() {
     return layered_costmap_->IsCurrent();
   }
-  /**
-   * @brief Get the robot pose in global frame.
-   * @param global_pose
-   * @return True if got successfully.
-   */
-  bool GetRobotPose(tf::Stamped<tf::Pose>& global_pose) const;
-  /**
-   * @brief Get the costmap.
-   * @return The class containing costmap data.
-   */
-  Costmap2D* GetCostMap() const {
+
+  bool GetRobotPose(geometry_msgs::msg::PoseStamped &global_pose) const;
+
+  Costmap2D *GetCostMap() const {
     return layered_costmap_->GetCostMap();
   }
-  /**
-   * @brief Get robot pose with time stamped.
-   * @param global_pose
-   * @return True if success.
-   */
-  bool GetRobotPose(geometry_msgs::PoseStamped & global_pose) const;
-  /**
-   * @brief Get the global map frame.
-   * @return The global map frame name.
-   */
+
   std::string GetGlobalFrameID() {
     return global_frame_;
   }
-  /**
-   * @brief Get the base frame.
-   * @return The base frame name.
-   */
+
   std::string GetBaseFrameID() {
     return robot_base_frame_;
   }
-  /**
-   * @brief Get the layered costmap
-   * @return The class including layers
-   */
-  CostmapLayers* GetLayeredCostmap() {
+
+  CostmapLayers *GetLayeredCostmap() {
     return layered_costmap_;
   }
-  /**
-   * @brief Get the footprint polygon which are already padded.
-   * @return The footprint polygon.
-   */
-  geometry_msgs::Polygon GetRobotFootprintPolygon() {
+
+  geometry_msgs::msg::Polygon GetRobotFootprintPolygon() {
     return ToPolygon(padded_footprint_);
   }
-  /**
-   * @brief Get the footprint points which are already padded.
-   * @return The vector of footprint point.
-   */
-  std::vector<geometry_msgs::Point> GetRobotFootprint() {
+
+  std::vector<geometry_msgs::msg::Point> GetRobotFootprint() {
     return padded_footprint_;
   }
-  /**
-   * @brief Get the footprint which are not padded.
-   * @return The vector of footprint point.
-   */
-  std::vector<geometry_msgs::Point> GetUnpaddedRobotFootprint() {
+
+  std::vector<geometry_msgs::msg::Point> GetUnpaddedRobotFootprint() {
     return unpadded_footprint_;
   }
-  /**
-   * @brief Get the oriented footprint in global map.
-   * @param oriented_footprint
-   */
-  void GetOrientedFootprint(std::vector<geometry_msgs::Point>& oriented_footprint) const;
-  /**
-   * @brief Set up the robot footprint.
-   * @param points Input vector of points to setup the robot footprint.
-   */
-  void SetUnpaddedRobotFootprint(const std::vector<geometry_msgs::Point>& points);
-  /**
-   * @brief Set up the robot footprint.
-   * @param footprint Input po"CostmapInterface"lygon to setup the robot footprint.
-   */
-  void SetUnpaddedRobotFootprintPolygon(const geometry_msgs::Polygon& footprint);
 
-  /**
-   * @brief Output the original footprint.
-   * @param footprint Vector of Eigen::Vector3f.
-   */
-  void GetFootprint(std::vector<Eigen::Vector3f> & footprint);
-  /**
-   * @brief Get the oriented footprint.
-   * @param footprint Vector of Eigen::Vector3f
-   */
-  void GetOrientedFootprint(std::vector<Eigen::Vector3f> & footprint);
-  /**
-   * @brief Get robot pose in self-defined format.
-   * @param pose Pose defined by RM team.
-   * @return True if get successfully
-   */
-  bool GetRobotPose(RobotPose & pose);
-  /**
-   * @brief Get the costmap value array.
-   * @return The pointer to the costmap value array.
-   */
-  unsigned char* GetCharMap() const;
-  /**
-   * @brief Get the stamped pose message.
-   * @param pose_msg
-   * @return PoseStamped message.
-   */
-  geometry_msgs::PoseStamped Pose2GlobalFrame(const geometry_msgs::PoseStamped& pose_msg);
+  void GetOrientedFootprint(std::vector<geometry_msgs::msg::Point> &oriented_footprint) const;
+
+  void SetUnpaddedRobotFootprint(const std::vector<geometry_msgs::msg::Point> &points);
+
+  void SetUnpaddedRobotFootprintPolygon(const geometry_msgs::msg::Polygon &footprint);
+
+  void GetFootprint(std::vector<Eigen::Vector3f> &footprint);
+
+  void GetOrientedFootprint(std::vector<Eigen::Vector3f> &footprint);
+
+  bool GetRobotPose(RobotPose &pose);
+
+  unsigned char *GetCharMap() const;
+
+  geometry_msgs::msg::PoseStamped Pose2GlobalFrame(const geometry_msgs::msg::PoseStamped &pose_msg);
+
   void ClearCostMap();
-  void ClearLayer(CostmapLayer* costmap_layer_ptr, double pose_x, double pose_y);
+
+  void ClearLayer(CostmapLayer *costmap_layer_ptr, double pose_x, double pose_y);
+
  protected:
   void LoadParameter();
-  std::vector<geometry_msgs::Point> footprint_points_;
-  CostmapLayers* layered_costmap_;
+
+  std::vector<geometry_msgs::msg::Point> footprint_points_;
+  CostmapLayers *layered_costmap_;
   std::string name_, config_file_, config_file_inflation_;
-  tf::TransformListener& tf_;
+  rclcpp::Node::SharedPtr node_;
+  tf2_ros::Buffer &tf_;
   std::string global_frame_, robot_base_frame_;
   double transform_tolerance_, dist_behind_robot_threshold_to_care_obstacles_;
-  nav_msgs::OccupancyGrid grid_;
-  char* cost_translation_table_ = new char[256];
+  nav_msgs::msg::OccupancyGrid grid_;
+  char *cost_translation_table_ = new char[256];
 
-  ros::Publisher costmap_pub_;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_pub_;
 
  private:
-  void DetectMovement(const ros::TimerEvent &event);
+  void DetectMovement();
   void MapUpdateLoop(double frequency);
-  std::vector<geometry_msgs::Point> unpadded_footprint_, padded_footprint_;
+
+  std::vector<geometry_msgs::msg::Point> unpadded_footprint_, padded_footprint_;
   float footprint_padding_;
   bool map_update_thread_shutdown_, stop_updates_, initialized_, stopped_, robot_stopped_, got_footprint_, is_debug_, \
        is_track_unknown_, is_rolling_window_, has_static_layer_, has_obstacle_layer_;
   double map_update_frequency_, map_width_, map_height_, map_origin_x_, map_origin_y_, map_resolution_;
-  std::thread* map_update_thread_;
-  ros::Timer timer_;
-  ros::Time last_publish_;
-  tf::Stamped<tf::Pose> old_pose_;
+  std::thread *map_update_thread_;
+  rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::Time last_publish_;
+  geometry_msgs::msg::PoseStamped old_pose_;
 };
 
 } //namespace roborts_costmap

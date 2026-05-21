@@ -1,244 +1,206 @@
 /****************************************************************************
  *  Copyright (C) 2019 RoboMaster.
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  ***************************************************************************/
-/*********************************************************************
- *
- * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2008, 2013, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *
- *********************************************************************/
-#include <pcl/point_types.h>
-#include <pcl_ros/transforms.h>
-#include <pcl/conversions.h>
+
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <pcl/PCLPointCloud2.h>
+#include <pcl/conversions.h>
+#include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+
+#include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <rclcpp/logging.hpp>
+
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
+
+#include <tf2_eigen/tf2_eigen.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#include <pcl/common/transforms.h>
+
+#include <string>
+#include <vector>
+
 #include "observation_buffer.h"
 
-using namespace std;
-using namespace tf;
-
 namespace roborts_costmap {
-ObservationBuffer::ObservationBuffer(string topic_name, double observation_keep_time, double expected_update_rate,
-                                     double min_obstacle_height, double max_obstacle_height, double obstacle_range,
-                                     double raytrace_range, TransformListener& tf, string global_frame,
-                                     string sensor_frame, double tf_tolerance) :
-    tf_(tf), observation_keep_time_(observation_keep_time), expected_update_rate_(expected_update_rate),
-    last_updated_(ros::Time::now()), global_frame_(global_frame), sensor_frame_(sensor_frame), topic_name_(topic_name),
-    min_obstacle_height_(min_obstacle_height), max_obstacle_height_(max_obstacle_height),
-    obstacle_range_(obstacle_range), raytrace_range_(raytrace_range), tf_tolerance_(tf_tolerance)
-{
+
+namespace {
+
+inline builtin_interfaces::msg::Time pclStampToBuiltin(uint64_t stamp_usec) {
+  builtin_interfaces::msg::Time msg;
+  msg.sec = static_cast<int32_t>(stamp_usec / 1000000ULL);
+  msg.nanosec = static_cast<uint32_t>((stamp_usec % 1000000ULL) * 1000ULL);
+  return msg;
 }
 
-ObservationBuffer::~ObservationBuffer()
-{
-}
+}  // namespace
+
+ObservationBuffer::ObservationBuffer(std::string topic_name,
+                                     double observation_keep_time,
+                                     double expected_update_rate,
+                                     double min_obstacle_height,
+                                     double max_obstacle_height,
+                                     double obstacle_range,
+                                     double raytrace_range,
+                                     tf2_ros::Buffer &tf,
+                                     std::string global_frame,
+                                     std::string sensor_frame,
+                                     double tf_tolerance,
+                                     const rclcpp::Clock::SharedPtr &clock)
+    : tf_(tf),
+      observation_keep_time_(rclcpp::Duration::from_seconds(observation_keep_time)),
+      expected_update_rate_(rclcpp::Duration::from_seconds(expected_update_rate)),
+      last_updated_(clock->now()),
+      global_frame_(std::move(global_frame)),
+      sensor_frame_(std::move(sensor_frame)),
+      topic_name_(std::move(topic_name)),
+      min_obstacle_height_(min_obstacle_height),
+      max_obstacle_height_(max_obstacle_height),
+      obstacle_range_(obstacle_range),
+      raytrace_range_(raytrace_range),
+      tf_tolerance_(tf_tolerance),
+      clock_(clock) {}
+
+ObservationBuffer::~ObservationBuffer() = default;
 
 bool ObservationBuffer::SetGlobalFrame(const std::string new_global_frame)
 {
-  ros::Time transform_time = ros::Time::now();
-  std::string tf_error;
+  rclcpp::Time transform_time = clock_->now();
 
-  if (!tf_.waitForTransform(new_global_frame, global_frame_, transform_time, ros::Duration(tf_tolerance_),
-                            ros::Duration(0.01), &tf_error))
-  {
-    ROS_ERROR("Transform between %s and %s with tolerance %.2f failed: %s.", new_global_frame.c_str(),
-              global_frame_.c_str(), tf_tolerance_, tf_error.c_str());
+  geometry_msgs::msg::TransformStamped tf_global_old_to_new;
+  try {
+    tf_global_old_to_new =
+        tf_.lookupTransform(new_global_frame, global_frame_,
+                            tf2_ros::fromRcl(transform_time), tf2::durationFromSec(tf_tolerance_));
+  } catch (const tf2::TransformException &ex) {
+    RCLCPP_ERROR(rclcpp::get_logger("costmap"),
+                 "Transform between %s and %s failed: %s",
+                 new_global_frame.c_str(), global_frame_.c_str(), ex.what());
     return false;
   }
 
-  list<Observation>::iterator obs_it;
-  for (obs_it = observation_list_.begin(); obs_it != observation_list_.end(); ++obs_it)
-  {
-    try
-    {
-      Observation& obs = *obs_it;
+  for (Observation &obs : observation_list_) {
+    try {
+      geometry_msgs::msg::PointStamped origin_in;
+      origin_in.header.frame_id = global_frame_;
+      origin_in.header.stamp = transform_time;
+      origin_in.point = obs.origin_;
+      geometry_msgs::msg::PointStamped origin_out;
+      tf2::doTransform(origin_in, origin_out, tf_global_old_to_new);
+      obs.origin_ = origin_out.point;
 
-      geometry_msgs::PointStamped origin;
-      origin.header.frame_id = global_frame_;
-      origin.header.stamp = transform_time;
-      origin.point = obs.origin_;
-
-      // we need to transform the origin of the observation to the new global frame
-      tf_.transformPoint(new_global_frame, origin, origin);
-      obs.origin_ = origin.point;
-
-      // we also need to transform the cloud of the observation to the new global frame
-      pcl_ros::transformPointCloud(new_global_frame, *obs.cloud_, *obs.cloud_, tf_);
-    }
-    catch (TransformException& ex)
-    {
-      ROS_ERROR("TF Error attempting to transform an observation from %s to %s: %s", global_frame_.c_str(),
-                new_global_frame.c_str(), ex.what());
+      Eigen::Isometry3d iso = tf2::transformToEigen(tf_global_old_to_new.transform);
+      pcl::PointCloud<pcl::PointXYZ> transformed;
+      pcl::transformPointCloud(*(obs.cloud_), transformed, Eigen::Affine3f(iso.matrix().cast<float>()));
+      *(obs.cloud_) = transformed;
+      obs.cloud_->header.frame_id = new_global_frame;
+    } catch (const tf2::TransformException &ex) {
+      RCLCPP_ERROR(rclcpp::get_logger("costmap"),
+                   "TF error transforming an observation from %s to %s: %s",
+                   global_frame_.c_str(), new_global_frame.c_str(), ex.what());
       return false;
     }
   }
 
-  // now we need to update our global_frame member
   global_frame_ = new_global_frame;
   return true;
 }
 
-void ObservationBuffer::BufferCloud(const sensor_msgs::PointCloud2& cloud)
+void ObservationBuffer::BufferCloud(const sensor_msgs::msg::PointCloud2 &cloud)
 {
-  try
-  {
+  try {
     pcl::PCLPointCloud2 pcl_pc2;
     pcl_conversions::toPCL(cloud, pcl_pc2);
-    // Actually convert the PointCloud2 message into a type we can reason about
-    pcl::PointCloud < pcl::PointXYZ > pcl_cloud;
+    pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
     pcl::fromPCLPointCloud2(pcl_pc2, pcl_cloud);
     BufferCloud(pcl_cloud);
-  }
-  catch (pcl::PCLException& ex)
-  {
-    ROS_ERROR("Failed to convert a message to a pcl type, dropping observation: %s", ex.what());
+  } catch (const pcl::PCLException &ex) {
+    RCLCPP_ERROR(rclcpp::get_logger("costmap"), "Failed to convert message to pcl: %s", ex.what());
     return;
   }
 }
 
-void ObservationBuffer::BufferCloud(const pcl::PointCloud<pcl::PointXYZ>& cloud)
+void ObservationBuffer::BufferCloud(const pcl::PointCloud<pcl::PointXYZ> &cloud_in)
 {
-  Stamped < tf::Vector3 > global_origin;
-
-  // create a new observation on the list to be populated
   observation_list_.push_front(Observation());
 
-  // check whether the origin frame has been set explicitly or whether we should get it from the cloud
-  string origin_frame = sensor_frame_ == "" ? cloud.header.frame_id : sensor_frame_;
+  std::string origin_frame =
+      sensor_frame_.empty() ? std::string(cloud_in.header.frame_id) : sensor_frame_;
 
-  try
-  {
-    // given these observations come from sensors... we'll need to store the origin pt of the sensor
-    Stamped < tf::Vector3 > local_origin(tf::Vector3(0, 0, 0),
-                                         pcl_conversions::fromPCL(cloud.header).stamp, origin_frame);
-    tf_.waitForTransform(global_frame_, local_origin.frame_id_, local_origin.stamp_, ros::Duration(0.5));
-    tf_.transformPoint(global_frame_, local_origin, global_origin);
-    observation_list_.front().origin_.x = global_origin.getX();
-    observation_list_.front().origin_.y = global_origin.getY();
-    observation_list_.front().origin_.z = global_origin.getZ();
+  rclcpp::Time cloud_time(pclStampToBuiltin(cloud_in.header.stamp), clock_->get_clock_type());
 
-    // make sure to pass on the raytrace/obstacle range of the observation buffer to the observations
-    observation_list_.front().raytrace_range_ = raytrace_range_;
-    observation_list_.front().obstacle_range_ = obstacle_range_;
+  Observation &front = observation_list_.front();
 
-    pcl::PointCloud < pcl::PointXYZ > global_frame_cloud;
+  try {
+    geometry_msgs::msg::PoseStamped local_pose;
+    local_pose.header.frame_id = origin_frame;
+    local_pose.header.stamp = cloud_time;
+    local_pose.pose.orientation.w = 1.;
 
-    // transform the point cloud
-    pcl_ros::transformPointCloud(global_frame_, cloud, global_frame_cloud, tf_);
-    global_frame_cloud.header.stamp = cloud.header.stamp;
+    geometry_msgs::msg::PoseStamped pose_global =
+        tf_.transform(local_pose, global_frame_, tf2::durationFromSec(0.5));
 
-    // now we need to remove observations from the cloud that are below or above our height thresholds
-    pcl::PointCloud < pcl::PointXYZ > &observation_cloud = *(observation_list_.front().cloud_);
-    unsigned int cloud_size = global_frame_cloud.points.size();
-    observation_cloud.points.resize(cloud_size);
-    unsigned int point_count = 0;
+    front.origin_.x = pose_global.pose.position.x;
+    front.origin_.y = pose_global.pose.position.y;
+    front.origin_.z = pose_global.pose.position.z;
 
-    // copy over the points that are within our height bounds
-    for (unsigned int i = 0; i < cloud_size; ++i)
-    {
-      if (global_frame_cloud.points[i].z <= max_obstacle_height_
-          && global_frame_cloud.points[i].z >= min_obstacle_height_)
-      {
-        observation_cloud.points[point_count++] = global_frame_cloud.points[i];
-      }
-    }
+    front.raytrace_range_ = raytrace_range_;
+    front.obstacle_range_ = obstacle_range_;
 
-    // resize the cloud for the number of legal points
-    observation_cloud.points.resize(point_count);
-    observation_cloud.header.stamp = cloud.header.stamp;
-    observation_cloud.header.frame_id = global_frame_cloud.header.frame_id;
+    sensor_msgs::msg::PointCloud2 ros_cloud;
+    pcl::toROSMsg(cloud_in, ros_cloud);
+    ros_cloud.header.frame_id = origin_frame;
+    ros_cloud.header.stamp = pclStampToBuiltin(cloud_in.header.stamp);
+
+    geometry_msgs::msg::TransformStamped transform =
+        tf_.lookupTransform(global_frame_, origin_frame, tf2_ros::fromRcl(cloud_time),
+                            tf2::durationFromSec(0.5));
+
+    sensor_msgs::msg::PointCloud2 ros_cloud_tf;
+    tf2_sensor_msgs::doTransform(ros_cloud, ros_cloud_tf, transform);
+
+    pcl::PointCloud<pcl::PointXYZ> global_frame_cloud;
+    pcl::fromROSMsg(ros_cloud_tf, global_frame_cloud);
+    *(front.cloud_) = global_frame_cloud;
+    pcl_conversions::toPCL(ros_cloud_tf.header.stamp,
+                           front.cloud_->header.stamp);
+    front.cloud_->header.frame_id = ros_cloud_tf.header.frame_id.c_str();
   }
-  catch (TransformException& ex)
-  {
-    // if an exception occurs, we need to remove the empty observation from the list
+  catch (const tf2::TransformException &ex) {
     observation_list_.pop_front();
-    ROS_ERROR("TF Exception that should never happen for sensor frame: %s, cloud frame: %s, %s", sensor_frame_.c_str(),
-              cloud.header.frame_id.c_str(), ex.what());
+    RCLCPP_ERROR(rclcpp::get_logger("costmap"), "Observation buffer TF: %s", ex.what());
     return;
   }
 
-  // if the update was successful, we want to update the last updated time
-  last_updated_ = ros::Time::now();
-
-  // we'll also remove any stale observations from the list
+  last_updated_ = clock_->now();
   PurgeStaleObservations();
 }
 
-// returns a copy of the observations
-void ObservationBuffer::GetObservations(vector<Observation>& observations)
+void ObservationBuffer::GetObservations(std::vector<Observation> &observations)
 {
-  // first... let's make sure that we don't have any stale observations
   PurgeStaleObservations();
-  // now we'll just copy the observations for the caller
-  list<Observation>::iterator obs_it;
-  for (obs_it = observation_list_.begin(); obs_it != observation_list_.end(); ++obs_it)
-  {
-    observations.push_back(*obs_it);
+  for (const Observation &obs : observation_list_) {
+    observations.push_back(obs);
   }
 }
 
 void ObservationBuffer::PurgeStaleObservations()
 {
-  if (!observation_list_.empty())
-  {
-    list<Observation>::iterator obs_it = observation_list_.begin();
-    // if we're keeping observations for no time... then we'll only keep one observation
-    if (observation_keep_time_ == ros::Duration(0.0))
-    {
+  if (!observation_list_.empty()) {
+    if (observation_keep_time_.nanoseconds() == 0LL) {
+      auto obs_it = observation_list_.begin();
       observation_list_.erase(++obs_it, observation_list_.end());
       return;
     }
 
-    // otherwise... we'll have to loop through the observations to see which ones are stale
-    for (obs_it = observation_list_.begin(); obs_it != observation_list_.end(); ++obs_it)
-    {
-      Observation& obs = *obs_it;
-      // check if the observation is out of date... and if it is, remove it and those that follow from the list
-      ros::Duration time_diff = last_updated_ - pcl_conversions::fromPCL(obs.cloud_->header).stamp;
-      if ((last_updated_ - pcl_conversions::fromPCL(obs.cloud_->header).stamp) > observation_keep_time_)
-      {
+    for (auto obs_it = observation_list_.begin(); obs_it != observation_list_.end(); ++obs_it) {
+      Observation &obs = *obs_it;
+      rclcpp::Time cloud_stamp(pclStampToBuiltin(obs.cloud_->header.stamp), clock_->get_clock_type());
+      if ((last_updated_ - cloud_stamp) > observation_keep_time_) {
         observation_list_.erase(obs_it, observation_list_.end());
         return;
       }
@@ -248,23 +210,23 @@ void ObservationBuffer::PurgeStaleObservations()
 
 bool ObservationBuffer::IsCurrent() const
 {
-  if (expected_update_rate_ == ros::Duration(0.0))
+  if (expected_update_rate_.seconds() == 0.0) {
     return true;
-
-  bool current = (ros::Time::now() - last_updated_).toSec() <= expected_update_rate_.toSec();
-  if (!current)
-  {
-    ROS_WARN(
-        "The %s observation buffer has not been updated for %.2f seconds, and it should be updated every %.2f seconds.",
-        topic_name_.c_str(), (ros::Time::now() - last_updated_).toSec(), expected_update_rate_.toSec());
+  }
+  double age = (clock_->now() - last_updated_).seconds();
+  bool current = age <= expected_update_rate_.seconds();
+  if (!current) {
+    RCLCPP_WARN(
+        rclcpp::get_logger("costmap"),
+        "The %s observation buffer has not been updated for %.2f seconds, expected every %.2f seconds.",
+        topic_name_.c_str(), age, expected_update_rate_.seconds());
   }
   return current;
 }
 
 void ObservationBuffer::ResetLastUpdated()
 {
-  last_updated_ = ros::Time::now();
+  last_updated_ = clock_->now();
 }
 
 } //namespace roborts_costmap
-

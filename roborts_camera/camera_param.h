@@ -7,8 +7,8 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
@@ -18,10 +18,12 @@
 #ifndef ROBORTS_CAMERA_CAMERA_PARAM_H
 #define ROBORTS_CAMERA_CAMERA_PARAM_H
 
-#include <thread>
 #include <string>
+#include <vector>
+
+#include <memory>
 #include <opencv2/opencv.hpp>
-#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/msg/camera_info.hpp>
 
 namespace roborts_camera {
 /**
@@ -65,7 +67,7 @@ struct CameraInfo {
   unsigned int contrast;
 
   //! camera information in form of ROS sensor_msgs
-  sensor_msgs::CameraInfoPtr ros_camera_info;
+  sensor_msgs::msg::CameraInfo::SharedPtr ros_camera_info;
   //! opencv video capture
   cv::VideoCapture cap_handle;
 };

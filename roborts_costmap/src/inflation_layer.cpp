@@ -51,6 +51,7 @@
  *********************************************************************/
 #include <algorithm>
 #include <mutex>
+#include <rclcpp/rclcpp.hpp>
 #include "costmap_math.h"
 #include "footprint.h"
 #include "inflation_layer.h"
@@ -76,7 +77,6 @@ InflationLayer::InflationLayer()
 void InflationLayer::OnInitialize() {
 
   std::unique_lock<std::recursive_mutex> lock(*inflation_access_);
-  ros::NodeHandle nh("~/" + name_), g_nh;
   is_current_ = true;
   if (seen_)
     delete[] seen_;
@@ -151,7 +151,8 @@ void InflationLayer::OnFootprintChanged() {
 void InflationLayer::UpdateCosts(Costmap2D &master_grid, int min_i, int min_j, int max_i, int max_j) {
   std::unique_lock<std::recursive_mutex> lock(*inflation_access_);
   if (!is_enabled_ || (cell_inflation_radius_ == 0)) {
-    ROS_ERROR("Layer is not enabled or inflation radius is zero");
+    RCLCPP_ERROR(rclcpp::get_logger("costmap"),
+                 "Layer is not enabled or inflation radius is zero");
     return;
   }
   unsigned char *master_array = master_grid.GetCharMap();

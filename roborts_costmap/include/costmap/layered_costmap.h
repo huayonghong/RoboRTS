@@ -52,7 +52,7 @@
 #ifndef ROBORTS_COSTMAP_COSTMAPLAYERS_H
 #define ROBORTS_COSTMAP_COSTMAPLAYERS_H
 
-#include <geometry_msgs/Point.h>
+#include <geometry_msgs/msg/point.hpp>
 #include "map_common.h"
 #include "layer.h"
 #include "costmap_2d.h"
@@ -68,7 +68,7 @@ class CostmapLayers {
   ~CostmapLayers();
   void UpdateMap(double robot_x, double robot_y, double robot_yaw);
 
-  const std::vector<geometry_msgs::Point>& GetFootprint() {
+  const std::vector<geometry_msgs::msg::Point>& GetFootprint() {
     return footprint_;
   }
 
@@ -137,7 +137,7 @@ class CostmapLayers {
   /** @brief Updates the stored footprint, updates the circumscribed
    * and inscribed radii, and calls onFootprintChanged() in all
    * layers. */
-  void SetFootprint(const std::vector<geometry_msgs::Point>& footprint_spec);
+  void SetFootprint(const std::vector<geometry_msgs::msg::Point>& footprint_spec);
 
   /** @brief The radius of a circle centered at the origin of the
    * robot which just surrounds all points on the robot's
@@ -166,7 +166,7 @@ class CostmapLayers {
 
  private:
   std::string global_frame_id_, file_path_;
-  std::vector<geometry_msgs::Point> footprint_;
+  std::vector<geometry_msgs::msg::Point> footprint_;
   Costmap2D costmap_;
   bool is_rolling_window_, is_size_locked_, is_initialized_, is_current_;
   double  minx_, miny_, maxx_, maxy_, circumscribed_radius_, inscribed_radius_;

@@ -1,63 +1,38 @@
+cmake_minimum_required(VERSION 3.5)
 project(roborts_msgs)
-cmake_minimum_required(VERSION 3.1)
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
-find_package(catkin REQUIRED COMPONENTS
-    std_msgs
-    nav_msgs
-    geometry_msgs
-    actionlib
-    message_generation
-    )
 
-add_action_files(
-    DIRECTORY action
-    FILES
-    LocalPlanner.action
-    GlobalPlanner.action
-    ArmorDetection.action
+find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(action_msgs REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/TwistAccel.msg"
+  "msg/GimbalAngle.msg"
+  "msg/GimbalRate.msg"
+  "msg/ObstacleMsg.msg"
+  "msg/ShootInfo.msg"
+  "msg/ShootState.msg"
+  "msg/BonusStatus.msg"
+  "msg/GameResult.msg"
+  "msg/GameStatus.msg"
+  "msg/GameSurvivor.msg"
+  "msg/ProjectileSupply.msg"
+  "msg/RobotBonus.msg"
+  "msg/RobotDamage.msg"
+  "msg/RobotHeat.msg"
+  "msg/RobotShoot.msg"
+  "msg/RobotStatus.msg"
+  "msg/SupplierStatus.msg"
+  "srv/GimbalMode.srv"
+  "srv/FricWhl.srv"
+  "srv/ShootCmd.srv"
+  "action/GlobalPlanner.action"
+  "action/LocalPlanner.action"
+  "action/ArmorDetection.action"
+  DEPENDENCIES std_msgs geometry_msgs nav_msgs action_msgs
 )
 
-add_message_files(
-    DIRECTORY msg
-    FILES
-    TwistAccel.msg
-    GimbalAngle.msg
-    GimbalRate.msg
-    ObstacleMsg.msg
-    ShootInfo.msg
-    ShootState.msg
-)
-
-add_message_files(
-    DIRECTORY msg/referee_system
-    FILES
-    BonusStatus.msg
-    GameResult.msg
-    GameStatus.msg
-    GameSurvivor.msg
-    ProjectileSupply.msg
-    RobotBonus.msg
-    RobotDamage.msg
-    RobotHeat.msg
-    RobotShoot.msg
-    RobotStatus.msg
-    SupplierStatus.msg
-)
-
-add_service_files(
-    DIRECTORY srv
-    FILES
-    GimbalMode.srv
-    FricWhl.srv
-    ShootCmd.srv
-)
-
-generate_messages(
-    DEPENDENCIES
-    std_msgs
-    geometry_msgs
-    nav_msgs
-)
-
-catkin_package()
+ament_package()

@@ -36,6 +36,11 @@
  */
 
 #include <memory>
+
+#include <rclcpp/rclcpp.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
 #include "amcl.h"
 
 namespace roborts_localization {
@@ -59,19 +64,19 @@ void Amcl::Init(const Vec3d &init_pose, const Vec3d &init_cov) {
 
   UpdatePoseFromParam(init_pose, init_cov);
 
-  cloud_pub_interval_.fromSec(1.0);
+  cloud_pub_interval_ = rclcpp::Duration::from_seconds(1.0);
 
-  LOG_INFO << "Amcl Init!";
+  RCLCPP_INFO(localization_logger(), "Amcl Init!");
 
 }
 
 Amcl::~Amcl() {
   Reset();
-  LOG_INFO << "Delete Amcl";
+  RCLCPP_INFO(localization_logger(), "Delete Amcl");
 }
 
-void Amcl::GetParamFromRos(ros::NodeHandle *nh) {
-  amcl_param_.GetParam(nh);
+void Amcl::GetParamFromRos(rclcpp::Node::SharedPtr node) {
+  amcl_param_.GetParam(node);
   CHECK_GT(amcl_param_.laser_likelihood_max_dist, 0);
 }
 
@@ -84,7 +89,9 @@ void Amcl::Reset() {
   }
 }
 
-void Amcl::HandleMapMessage(const nav_msgs::OccupancyGrid &map_msg, const Vec3d &init_pose, const Vec3d &init_cov) {
+void Amcl::HandleMapMessage(const nav_msgs::msg::OccupancyGrid &map_msg,
+                            const Vec3d &init_pose,
+                            const Vec3d &init_cov) {
   Reset();
   map_ptr_.reset(new AmclMap());
   map_ptr_->ConvertFromMsg(map_msg);
@@ -128,7 +135,9 @@ void Amcl::HandleMapMessage(const nav_msgs::OccupancyGrid &map_msg, const Vec3d 
 
   laser_model_ptr_ = std::make_unique<SensorLaser>(amcl_param_.laser_max_beams,
                                                    map_ptr_);
-  LOG_INFO << "Initializing likelihood field model( this can take some time on large maps)";
+  RCLCPP_INFO(localization_logger(),
+              "Initializing likelihood field model "
+              "(this can take some time on large maps)");
   laser_model_ptr_->SetModelLikelihoodFieldProb
       (amcl_param_.z_hit,
        amcl_param_.z_rand,
@@ -140,7 +149,7 @@ void Amcl::HandleMapMessage(const nav_msgs::OccupancyGrid &map_msg, const Vec3d 
        amcl_param_.beam_skip_error_threshold,
        amcl_param_.laser_filter_weight
       );
-  LOG_INFO << "Done initializing likelihood field model.";
+  RCLCPP_INFO(localization_logger(), "Done initializing likelihood field model.");
 
   if (use_global_localization_) {
     GlobalLocalization();
@@ -154,7 +163,7 @@ void Amcl::HandleMapMessage(const nav_msgs::OccupancyGrid &map_msg, const Vec3d 
 
 }
 
-const nav_msgs::OccupancyGrid &Amcl::GetDistanceMapMsg() {
+const nav_msgs::msg::OccupancyGrid &Amcl::GetDistanceMapMsg() {
   return map_ptr_->ConvertDistanMaptoMapMsg();
 }
 
@@ -169,35 +178,42 @@ void Amcl::UpdatePoseFromParam(const Vec3d &init_pose, const Vec3d &init_cov) {
   if (!std::isnan(init_pose[0])) {
     init_pose_[0] = init_pose[0];
   } else {
-    LOG_WARNING << "ignoring NAN in initial pose X position";
+    RCLCPP_WARN_STREAM(localization_logger(),
+                       "ignoring NAN in initial pose X position");
   }
   if (!std::isnan(init_pose[1])) {
     init_pose_[1] = init_pose[1];
   } else {
-    LOG_WARNING << "ignoring NAN in initial pose Y position";
+    RCLCPP_WARN_STREAM(localization_logger(),
+                       "ignoring NAN in initial pose Y position");
   }
   if (!std::isnan(init_pose[2])) {
     init_pose_[2] = init_pose[2];
   } else {
-    LOG_WARNING << "ignoring NAN in initial pose Yaw";
+    RCLCPP_WARN_STREAM(localization_logger(),
+                       "ignoring NAN in initial pose Yaw");
   }
   if (!std::isnan(init_cov[0])) {
     init_cov_[0] = init_cov[0];
   } else {
-    LOG_WARNING << "ignoring NAN in initial covariance XX";
+    RCLCPP_WARN_STREAM(localization_logger(),
+                       "ignoring NAN in initial covariance XX");
   }
   if (!std::isnan(init_cov[1])) {
     init_cov_[1] = init_cov[1];
   } else {
-    LOG_WARNING << "ignoring NAN in initial covariance YY";
+    RCLCPP_WARN_STREAM(localization_logger(),
+                       "ignoring NAN in initial covariance YY");
   }
   if (!std::isnan(init_cov[2])) {
-    init_cov_[1] = init_cov[2];
+    init_cov_[2] = init_cov[2];
   } else {
-    LOG_WARNING << "ignoring NAN in initial covariance AA";
+    RCLCPP_WARN_STREAM(localization_logger(),
+                       "ignoring NAN in initial covariance AA");
   }
 
-  DLOG_INFO << "Updated init pose " << init_pose_;
+  RCLCPP_DEBUG_STREAM(localization_logger(),
+                      "Updated init pose " << init_pose_.transpose());
 }
 
 void Amcl::HandleInitialPoseMessage(Vec3d pf_init_pose_mean,
@@ -236,11 +252,11 @@ bool Amcl::GlobalLocalization() {
     return true;
   }
 
-  LOG_INFO << "Initializing with uniform distribution";
+  RCLCPP_INFO(localization_logger(), "Initializing with uniform distribution");
   PfInitModelFunc UniformPoseGeneratorFunc = std::bind(&Amcl::UniformPoseGenerator, this);
   pf_ptr_->InitByModel(UniformPoseGeneratorFunc);
 
-  LOG_INFO << "Global initialization done!";
+  RCLCPP_INFO(localization_logger(), "Global initialization done!");
   pf_init_ = false;
   return true;
 }
@@ -317,11 +333,11 @@ void Amcl::UpdateUwb(const Vec3d &uwb_pose) {
 
 }
 
-int Amcl::Update(const Vec3d &pose,
-                 const sensor_msgs::LaserScan &laser_scan,
+void Amcl::Update(const Vec3d &pose,
+                 const sensor_msgs::msg::LaserScan &laser_scan,
                  const double &angle_min,
                  const double &angle_increment,
-                 geometry_msgs::PoseArray &particle_cloud_pose_msg,
+                 geometry_msgs::msg::PoseArray &particle_cloud_pose_msg,
                  HypPose &hyp_pose) {
 
   std::lock_guard<std::mutex> sample_lock(mutex_);
@@ -336,8 +352,8 @@ int Amcl::Update(const Vec3d &pose,
   if (laser_update_) {
     UpdateLaser(laser_scan, angle_min, angle_increment, pose, particle_cloud_pose_msg);
   }
-  UpdateFilter(hyp_pose, laser_scan.header.stamp);
-};
+  UpdateFilter(hyp_pose, rclcpp::Time(laser_scan.header.stamp));
+}
 
 void Amcl::UpdateOdomPoseData(Vec3d pose) {
   Vec3d delta;
@@ -376,7 +392,8 @@ void Amcl::UpdateOdomPoseData(Vec3d pose) {
     resample_count_ = 0;
   }     // If the robot has moved, update the filter
   else if (pf_init_ && laser_update_) {
-    DLOG_INFO << "Robot has moved, update the filter";
+    RCLCPP_DEBUG_STREAM(localization_logger(),
+                        "Robot has moved, update the filter");
     SensorOdomData odom_data;
     odom_data.pose = pose;
     odom_data.delta = delta;
@@ -384,11 +401,11 @@ void Amcl::UpdateOdomPoseData(Vec3d pose) {
   }
 }
 
-void Amcl::UpdateLaser(const sensor_msgs::LaserScan &laser_scan,
+void Amcl::UpdateLaser(const sensor_msgs::msg::LaserScan &laser_scan,
                        double angle_min,
                        double angle_increment,
                        const Vec3d &pose,
-                       geometry_msgs::PoseArray &particle_cloud_pose_msg) {
+                       geometry_msgs::msg::PoseArray &particle_cloud_pose_msg) {
 
   SensorLaserData laser_data;
   laser_data.range_count = laser_scan.ranges.size();
@@ -434,38 +451,41 @@ void Amcl::UpdateLaser(const sensor_msgs::LaserScan &laser_scan,
 
 }
 
-geometry_msgs::PoseArray Amcl::ResampleParticles() {
+geometry_msgs::msg::PoseArray Amcl::ResampleParticles() {
 
-  geometry_msgs::PoseArray particle_cloud_pose_msg;
+  geometry_msgs::msg::PoseArray particle_cloud_pose_msg;
 
   if (!(++resample_count_ % resample_interval_)) {
-    DLOG_INFO << "Resample the particles";
+    RCLCPP_DEBUG_STREAM(localization_logger(), "Resample the particles");
     pf_ptr_->UpdateResample();
     resampled_ = true;
   }
 
   auto set_ptr = pf_ptr_->GetCurrentSampleSetPtr();
-  DLOG_INFO << "Number of samples : " << set_ptr->sample_count;
+  RCLCPP_DEBUG_STREAM(localization_logger(),
+                      "Number of samples : " << set_ptr->sample_count);
 
   // Publish the resulting particle cloud
   particle_cloud_pose_msg.poses.resize(set_ptr->sample_count);
   for (int i = 0; i < set_ptr->sample_count; i++) {
-    tf::poseTFToMsg(tf::Pose(tf::createQuaternionFromYaw(set_ptr->samples_vec[i].pose[2]),
-                             tf::Vector3(set_ptr->samples_vec[i].pose[0],
-                                         set_ptr->samples_vec[i].pose[1],
-                                         0)),
-                    particle_cloud_pose_msg.poses[i]);
+    tf2::Quaternion q;
+    q.setRPY(0, 0, set_ptr->samples_vec[i].pose[2]);
+    particle_cloud_pose_msg.poses[i].orientation = tf2::toMsg(q);
+    particle_cloud_pose_msg.poses[i].position.x = set_ptr->samples_vec[i].pose[0];
+    particle_cloud_pose_msg.poses[i].position.y = set_ptr->samples_vec[i].pose[1];
+    particle_cloud_pose_msg.poses[i].position.z = 0;
   }
   publish_particle_pose_cloud_ = true;
   return particle_cloud_pose_msg;
 }
 
 void Amcl::UpdateFilter(HypPose &hyp_pose,
-                        ros::Time laser_msg_timestamp) {
+                        const rclcpp::Time & /*laser_msg_timestamp*/) {
 
   if (resampled_ || force_publication_) {
     if (!resampled_) {
-      DLOG_INFO << "Recompute particle filter cluster statistics";
+      RCLCPP_DEBUG_STREAM(localization_logger(),
+                          "Recompute particle filter cluster statistics");
       pf_ptr_->ClusterStatistics();
     }
     // Read out the current hypotheses
@@ -484,7 +504,8 @@ void Amcl::UpdateFilter(HypPose &hyp_pose,
                                          &weight,
                                          &pose_mean,
                                          &pose_cov)) {
-        LOG_ERROR << "Couldn't get stats on cluster " << hyp_count;
+        RCLCPP_ERROR_STREAM(localization_logger(),
+                            "Couldn't get stats on cluster " << hyp_count);
         break;
       }
 
@@ -500,11 +521,12 @@ void Amcl::UpdateFilter(HypPose &hyp_pose,
 
     if (max_weight > 0.0) {
 
-      DLOG_INFO << "Max weight: " << max_weight
-                << ", Pose: "
-                << hyps[max_weight_hyp].pf_pose_mean[0] << ", "
-                << hyps[max_weight_hyp].pf_pose_mean[1] << ", "
-                << hyps[max_weight_hyp].pf_pose_mean[2];
+      RCLCPP_DEBUG_STREAM(localization_logger(),
+                          "Max weight: "
+                              << max_weight << ", Pose: "
+                              << hyps[max_weight_hyp].pf_pose_mean[0]
+                              << ", " << hyps[max_weight_hyp].pf_pose_mean[1]
+                              << ", " << hyps[max_weight_hyp].pf_pose_mean[2]);
 
       auto set = pf_ptr_->GetCurrentSampleSetPtr();
 
@@ -514,7 +536,8 @@ void Amcl::UpdateFilter(HypPose &hyp_pose,
       publish_pose_ = true;
       update_tf_ = true;
     } else {
-      LOG_ERROR << "Max weight of clusters less than 0!";
+      RCLCPP_ERROR_STREAM(localization_logger(),
+                          "Max weight of clusters less than 0!");
       publish_pose_ = false;
       update_tf_ = false;
     }

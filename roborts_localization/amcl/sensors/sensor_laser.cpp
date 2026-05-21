@@ -106,7 +106,7 @@ double SensorLaser::LikelihoodFieldModelProb(SensorLaserData *sensor_laser_data_
   //we only do beam skipping if the filter has converged
   if (do_beamskip && !sample_set_ptr->converged) {
     do_beamskip = false;
-    DLOG_INFO << "Filter not converged";
+    RCLCPP_DEBUG_STREAM(localization_logger(), "Filter not converged");
   }
 
   //we need a count the no of particles for which the beam agreed with the map
@@ -131,7 +131,9 @@ double SensorLaser::LikelihoodFieldModelProb(SensorLaserData *sensor_laser_data_
 
     if (reset) {
       this->ResetTempData(sample_set_ptr->sample_count, this->max_beams_);
-      DLOG_INFO << "Reallocing temp weights " << this->max_samples_ << " - " << this->max_obs_;
+      RCLCPP_DEBUG_STREAM(localization_logger(),
+                          "Reallocing temp weights " << this->max_samples_
+                                                     << " - " << this->max_obs_);
     }
   }
 
@@ -188,7 +190,8 @@ double SensorLaser::LikelihoodFieldModelProb(SensorLaserData *sensor_laser_data_
       // Part 2: random measurements
       pz += this->z_rand_ * z_rand_mult;
 
-      LOG_FATAL_IF(pz > 1.0 || pz < 0.0) << "pz error num = " << pz;
+      CHECK_GE(pz, 0.0);
+      CHECK_LE(pz, 1.0);
 
       if (!do_beamskip) {
         log_p += log(pz);
@@ -217,17 +220,22 @@ double SensorLaser::LikelihoodFieldModelProb(SensorLaserData *sensor_laser_data_
         skipped_beam_count++;
       }
     }
-    DLOG(INFO) << "skipped_beam_count = " << skipped_beam_count << " max_beams = " << this->max_beams_;
+    RCLCPP_DEBUG_STREAM(localization_logger(),
+                        "skipped_beam_count = " << skipped_beam_count
+                                                << " max_beams = "
+                                                << this->max_beams_);
     //we check if there is at least a critical number of beams that agreed with the map
     //otherwise it probably indicates that the filter converged to a wrong solution
     //if that's the case we integrate all the beams and hope the filter might converge to
     //the right solution
     bool error = false;
     if (skipped_beam_count >= (beam_ind * this->beam_skip_error_threshold_)) {
-      LOG_ERROR << "Over " << (100 * this->beam_skip_error_threshold_)
-                << " of the observations were not in the map - "
-                << "pf may have converged to wrong pose - "
-                << "integrating all observations";
+      RCLCPP_ERROR_STREAM(localization_logger(),
+                          "Over " << (100 * this->beam_skip_error_threshold_)
+                                  << " of the observations were not in "
+                                     "the map - pf may have converged to "
+                                     "wrong pose - integrating all "
+                                     "observations");
       error = true;
     }
 
@@ -236,13 +244,10 @@ double SensorLaser::LikelihoodFieldModelProb(SensorLaserData *sensor_laser_data_
       log_p = 0;
       for (beam_ind = 0; beam_ind < this->max_beams_; beam_ind++) {
         if (error || obs_mask[beam_ind]) {
-          LOG_FATAL_IF(j > this->temp_obs_.size() - 1) << "temp_obs size = "
-                                                       << this->temp_obs_.size()
-                                                       << "j="
-                                                       << j;
-          LOG_FATAL_IF(beam_ind > this->temp_obs_.at(j).size() - 1) << "temp_obs at j size = "
-                                                                    << this->temp_obs_.at(j).size()
-                                                                    << "beam_ind = " << beam_ind;
+          CHECK_LT(j, static_cast<int>(this->temp_obs_.size()));
+          CHECK_LT(beam_ind,
+                   static_cast<int>(this->temp_obs_.at(j).size()));
+
           log_p += std::log(this->temp_obs_.at(j).at(beam_ind));
         }
       }
@@ -266,7 +271,9 @@ void SensorLaser::ResetTempData(int new_max_samples, int new_max_obs) {
 
   max_obs_ = new_max_obs;
   max_samples_ = std::max(max_samples_, new_max_samples);
-  DLOG_INFO << __FUNCTION__ << ": New max obs = " << max_obs_ << "New max samples = " << max_samples_;
+  RCLCPP_DEBUG_STREAM(localization_logger(),
+                        __FUNCTION__ << ": New max obs = " << max_obs_
+                                   << " New max samples = " << max_samples_);
   CHECK_GT(max_samples_, 0);
   temp_obs_.resize(max_samples_);
   for (int k = 0; k < max_samples_; k++) {

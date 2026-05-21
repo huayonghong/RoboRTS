@@ -1,32 +1,20 @@
-<package>
+<?xml version="1.0"?>
+<package format="3">
     <name>roborts_bringup</name>
     <version>1.0.0</version>
-    <description>
-        The roborts_bringup package provides quick bringup for RoboMaster AI Robot
-    </description>
+    <description>Quick bringup for RoboMaster AI Robot</description>
     <author>RoboMaster</author>
     <maintainer email="robomaster@dji.com">RoboMaster</maintainer>
-    <license>GPL 3.0 </license>
-    <url>https://github.com/RoboMaster/RoboRTS</url>
-
-    <buildtool_depend>catkin</buildtool_depend>
-
-    <build_depend>roborts_base</build_depend>
-    <build_depend>roborts_common</build_depend>
-    <build_depend>roborts_localization</build_depend>
-    <build_depend>roborts_costmap</build_depend>
-    <build_depend>roborts_msgs</build_depend>
-    <build_depend>roborts_planning</build_depend>
-    <build_depend>roborts_tf</build_depend>
-
-    <run_depend>roborts_base</run_depend>
-    <run_depend>roborts_common</run_depend>
-    <run_depend>roborts_localization</run_depend>
-    <run_depend>roborts_costmap</run_depend>
-    <run_depend>roborts_msgs</run_depend>
-    <run_depend>roborts_tf</run_depend>
-
-    <export>
-    </export>
-
+    <license>GPL-3.0</license>
+    <buildtool_depend>ament_cmake</buildtool_depend>
+    <exec_depend>roborts_base</exec_depend>
+    <exec_depend>roborts_common</exec_depend>
+    <exec_depend>roborts_localization</exec_depend>
+    <exec_depend>roborts_costmap</exec_depend>
+    <exec_depend>roborts_msgs</exec_depend>
+    <exec_depend>roborts_planning</exec_depend>
+    <exec_depend>nav2_map_server</exec_depend>
+    <exec_depend>tf2_ros</exec_depend>
+    <exec_depend>rviz2</exec_depend>
+    <export><build_type>ament_cmake</build_type></export>
 </package>

@@ -246,7 +246,7 @@ void Costmap2D::UpdateOrigin(double new_origin_x, double new_origin_y) {
   delete[] local_map;
 }
 
-bool Costmap2D::SetConvexRegionCost(const std::vector<geometry_msgs::Point> &polygon, unsigned char cost_value) {
+bool Costmap2D::SetConvexRegionCost(const std::vector<geometry_msgs::msg::Point> &polygon, unsigned char cost_value) {
   std::vector<MapLocation> map_polygon;
   for (unsigned int i = 0; i < polygon.size(); ++i) {
     MapLocation loc;

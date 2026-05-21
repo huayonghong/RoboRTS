@@ -86,7 +86,7 @@ function(rrts_protobuf_generate_cpp output_dir proto_srcs proto_hdrs)
     list(APPEND ${proto_hdrs} "${output_dir}/${fil_we}.pb.h")
 
     add_custom_command(
-      OUTPUT "${output_dir}/${fil_we}.pb.cpp"
+      OUTPUT "${output_dir}/${fil_we}.pb.cc"
              "${output_dir}/${fil_we}.pb.h"
       COMMAND ${PROTOBUF_PROTOC_EXECUTABLE}
       ARGS --cpp_out ${output_dir} ${_protoc_include} ${abs_fil}

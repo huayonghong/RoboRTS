@@ -1,28 +1,20 @@
-<package>
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
     <name>roborts_common</name>
     <version>1.0.0</version>
-    <description>
-        The roborts common package provides all the common functions for RoboMaster AI Robot
-    </description>
+    <description>The roborts common package provides all the common functions for RoboMaster AI Robot</description>
     <author>RoboMaster</author>
     <maintainer email="robomaster@dji.com">RoboMaster</maintainer>
-    <license>GPL 3.0 </license>
-    <url>https://github.com/RoboMaster/RoboRTS</url>
+    <license>GPL-3.0</license>
 
-    <buildtool_depend>catkin</buildtool_depend>
+    <buildtool_depend>ament_cmake</buildtool_depend>
 
-    <build_depend>actionlib</build_depend>
-    <build_depend>roscpp</build_depend>
-    <build_depend>roborts_msgs</build_depend>
-    <build_depend>rospy</build_depend>
-
-    <run_depend>actionlib</run_depend>
-    <run_depend>roscpp</run_depend>
-    <run_depend>roborts_msgs</run_depend>
-    <run_depend>rospy</run_depend>
-
+    <depend>rclcpp</depend>
+    <depend>roborts_msgs</depend>
+    <depend>ament_index_cpp</depend>
 
     <export>
+        <build_type>ament_cmake</build_type>
     </export>
-
 </package>

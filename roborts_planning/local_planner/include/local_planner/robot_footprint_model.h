@@ -60,6 +60,8 @@
 #include "local_planner/obstacle.h"
 #include "local_planner/distance_calculation.h"
 
+#include <geometry_msgs/msg/point.hpp>
+
 namespace roborts_local_planner {
 
 /**
@@ -194,7 +196,7 @@ class TwoCirclesRobotFootprint : public BaseRobotFootprintModel {
 class LineRobotFootprint : public BaseRobotFootprintModel {
  public:
 
-  LineRobotFootprint(const geometry_msgs::Point &line_start, const geometry_msgs::Point &line_end) {
+  LineRobotFootprint(const geometry_msgs::msg::Point &line_start, const geometry_msgs::msg::Point &line_end) {
     SetLine(line_start, line_end);
   }
 
@@ -204,7 +206,7 @@ class LineRobotFootprint : public BaseRobotFootprintModel {
 
   virtual ~LineRobotFootprint() {}
 
-  void SetLine(const geometry_msgs::Point &line_start, const geometry_msgs::Point &line_end) {
+  void SetLine(const geometry_msgs::msg::Point &line_start, const geometry_msgs::msg::Point &line_end) {
     line_start_.x() = line_start.x;
     line_start_.y() = line_start.y;
     line_end_.x() = line_end.x;

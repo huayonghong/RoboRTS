@@ -61,7 +61,7 @@
 #ifndef ROBORTS_PLANNING_LOCAL_PLANNER_TEB_ACCELERATION_EAGE_H
 #define ROBORTS_PLANNING_LOCAL_PLANNER_TEB_ACCELERATION_EAGE_H
 
-#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/msg/twist.hpp>
 
 #include "local_planner/utility_tool.h"
 
@@ -130,7 +130,7 @@ class AccelerationEdge : public TebMultiEdgeBase<2, double> {
 
 };
 
-class AccelerationStartEdge : public TebMultiEdgeBase<2, const geometry_msgs::Twist *> {
+class AccelerationStartEdge : public TebMultiEdgeBase<2, const geometry_msgs::msg::Twist *> {
  public:
 
   AccelerationStartEdge() {
@@ -169,7 +169,7 @@ class AccelerationStartEdge : public TebMultiEdgeBase<2, const geometry_msgs::Tw
                                        config_param_->optimize_info().penalty_epsilon());
   }
 
-  void SetInitialVelocity(const geometry_msgs::Twist &vel_start) {
+  void SetInitialVelocity(const geometry_msgs::msg::Twist &vel_start) {
     _measurement = &vel_start;
   }
 
@@ -177,7 +177,7 @@ class AccelerationStartEdge : public TebMultiEdgeBase<2, const geometry_msgs::Tw
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-class AccelerationGoalEdge : public TebMultiEdgeBase<2, const geometry_msgs::Twist *> {
+class AccelerationGoalEdge : public TebMultiEdgeBase<2, const geometry_msgs::msg::Twist *> {
  public:
 
   AccelerationGoalEdge() {
@@ -217,7 +217,7 @@ class AccelerationGoalEdge : public TebMultiEdgeBase<2, const geometry_msgs::Twi
 
   }
 
-  void SetGoalVelocity(const geometry_msgs::Twist &vel_goal) {
+  void SetGoalVelocity(const geometry_msgs::msg::Twist &vel_goal) {
     _measurement = &vel_goal;
   }
 
@@ -282,7 +282,7 @@ class AccelerationHolonomicEdge : public TebMultiEdgeBase<3, double> {
 
 };
 
-class AccelerationHolonomicStartEdge : public TebMultiEdgeBase<3, const geometry_msgs::Twist *> {
+class AccelerationHolonomicStartEdge : public TebMultiEdgeBase<3, const geometry_msgs::msg::Twist *> {
  public:
 
   AccelerationHolonomicStartEdge() {
@@ -325,7 +325,7 @@ class AccelerationHolonomicStartEdge : public TebMultiEdgeBase<3, const geometry
 
   }
 
-  void setInitialVelocity(const geometry_msgs::Twist &vel_start) {
+  void setInitialVelocity(const geometry_msgs::msg::Twist &vel_start) {
     _measurement = &vel_start;
   }
 
@@ -333,7 +333,7 @@ class AccelerationHolonomicStartEdge : public TebMultiEdgeBase<3, const geometry
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-class AccelerationHolonomicGoalEdge : public TebMultiEdgeBase<3, const geometry_msgs::Twist *> {
+class AccelerationHolonomicGoalEdge : public TebMultiEdgeBase<3, const geometry_msgs::msg::Twist *> {
  public:
 
   AccelerationHolonomicGoalEdge() {
@@ -376,7 +376,7 @@ class AccelerationHolonomicGoalEdge : public TebMultiEdgeBase<3, const geometry_
                                        config_param_->optimize_info().penalty_epsilon());
   }
 
-  void SetGoalVelocity(const geometry_msgs::Twist &vel_goal) {
+  void SetGoalVelocity(const geometry_msgs::msg::Twist &vel_goal) {
     _measurement = &vel_goal;
   }
 

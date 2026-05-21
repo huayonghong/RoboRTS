@@ -53,6 +53,8 @@
  * Author: Christoph Rösmann
  *********************************************************************/
 
+#include <rclcpp/rclcpp.hpp>
+
 #include "local_planner/obstacle.h"
 
 namespace roborts_local_planner {
@@ -68,7 +70,7 @@ void PolygonObstacle::FixPolygonClosure() {
 void PolygonObstacle::CalcCentroid() {
   if (vertices_.empty()) {
     centroid_.setConstant(NAN);
-    ROS_WARN("can't compute the centriod because the vertices is null");
+    RCLCPP_WARN(rclcpp::get_logger("local_planner"), "can't compute the centriod because the vertices is null");
     return;
   }
 
@@ -177,7 +179,7 @@ bool PolygonObstacle::CheckLineIntersection(const Eigen::Vector2d &line_start,
                                              vertices_.front());
 }
 
-void PolygonObstacle::ToPolygonMsg(geometry_msgs::Polygon &polygon) {
+void PolygonObstacle::ToPolygonMsg(geometry_msgs::msg::Polygon &polygon) {
   polygon.points.resize(vertices_.size());
   for (std::size_t i = 0; i < vertices_.size(); ++i) {
     polygon.points[i].x = vertices_[i].x();

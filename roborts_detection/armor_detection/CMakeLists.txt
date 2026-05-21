@@ -1,7 +1,6 @@
-project(armor_detection)
+cmake_minimum_required(VERSION 3.5)
 
 add_subdirectory(constraint_set)
-
 
 file(GLOB ProtoFiles "${CMAKE_CURRENT_SOURCE_DIR}/proto/*.proto")
 rrts_protobuf_generate_cpp(${CMAKE_CURRENT_SOURCE_DIR}/proto
@@ -9,48 +8,35 @@ rrts_protobuf_generate_cpp(${CMAKE_CURRENT_SOURCE_DIR}/proto
   ArmorDetectionProtoHds
   ${ProtoFiles})
 
-
-#armor detection node
-add_executable(${PROJECT_NAME}_node
+add_executable(armor_detection_node
   ${ArmorDetectionProtoSrc}
   ${ArmorDetectionProtoHds}
   armor_detection_node.cpp
-  gimbal_control.cpp
-)
+  gimbal_control.cpp)
+
+target_include_directories(armor_detection_node PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/..
+  ${CMAKE_CURRENT_SOURCE_DIR}/../util)
 
 target_link_libraries(armor_detection_node
   PRIVATE
   detection::tool
   detection::constraint_set
-  ${PROTOBUF_LIBRARIES}
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-)
+  ${PROTOBUF_LIBRARIES})
 
-target_include_directories(armor_detection_node
-  PRIVATE
-  ${catkin_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRECTORIES}
-)
-add_dependencies(armor_detection_node
-  roborts_msgs_generate_messages)
+ament_target_dependencies(armor_detection_node
+  rclcpp rclcpp_action cv_bridge image_transport sensor_msgs roborts_msgs
+  roborts_common ament_index_cpp)
 
-#armor_detection_client
-add_executable(${PROJECT_NAME}_client
-  armor_detection_client.cpp
-)
+find_package(OpenCV REQUIRED)
+target_link_libraries(armor_detection_node PRIVATE ${OpenCV_LIBS})
 
-target_include_directories(armor_detection_client
-  PRIVATE
-  ${catkin_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRECTORIES}
-  )
+add_executable(armor_detection_client
+  armor_detection_client.cpp)
 
-target_link_libraries(armor_detection_client
-  PRIVATE
-  detection::tool
-  ${PROTOBUF_LIBRARIES}
-  ${catkin_LIBRARIES}
-)
-add_dependencies(armor_detection_client
-  roborts_msgs_generate_messages)
+ament_target_dependencies(armor_detection_client
+  rclcpp rclcpp_action roborts_msgs)
+
+install(TARGETS armor_detection_node armor_detection_client
+  DESTINATION lib/${PROJECT_NAME})

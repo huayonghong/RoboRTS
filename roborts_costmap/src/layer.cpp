@@ -54,16 +54,18 @@
 namespace roborts_costmap {
 
 Layer::Layer()
-    : layered_costmap_(NULL), is_current_(false), is_enabled_(false), name_(), tf_(NULL) {}
+    : layered_costmap_(NULL), is_current_(false), is_enabled_(false), name_(), tf_(NULL), node_(nullptr) {}
 
-void Layer::Initialize(CostmapLayers *parent, std::string name, tf::TransformListener *tf) {
+void Layer::Initialize(CostmapLayers *parent, std::string name, tf2_ros::Buffer *tf,
+                       rclcpp::Node::SharedPtr node) {
   layered_costmap_ = parent;
   name_ = name;
   tf_ = tf;
+  node_ = std::move(node);
   OnInitialize();
 }
 
-const std::vector<geometry_msgs::Point> &Layer::GetFootprint() const {
+const std::vector<geometry_msgs::msg::Point> &Layer::GetFootprint() const {
   return layered_costmap_->GetFootprint();
 }
 

@@ -7,20 +7,20 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  ***************************************************************************/
 
+#include <rclcpp/rclcpp.hpp>
 #include <cv_bridge/cv_bridge.h>
-
 #include "camera_node.h"
 
 namespace roborts_camera{
-CameraNode::CameraNode() {
+CameraNode::CameraNode(rclcpp::Node::SharedPtr node) : node_(node) {
   camera_num_ = camera_param_.GetCameraParam().size();
   img_pubs_.resize(camera_num_);
   camera_threads_.resize(camera_num_);
@@ -28,13 +28,10 @@ CameraNode::CameraNode() {
 
   for (unsigned int i = 0; i < camera_num_; i++) {
     auto camera_info = camera_param_.GetCameraParam()[i];
-    nhs_.push_back(ros::NodeHandle(camera_info.camera_name));
-    image_transport::ImageTransport it(nhs_.at(i));
-    img_pubs_[i] = it.advertiseCamera("image_raw", 1, true);
-    //create the selected camera driver
+    image_transport::ImageTransport it(node_);
+    img_pubs_[i] = it.advertiseCamera(camera_info.camera_name + "/image_raw", rclcpp::QoS(1));
     camera_driver_[i] = roborts_common::AlgorithmFactory<CameraBase,CameraInfo>::CreateAlgorithm(camera_info.camera_type,camera_info);
   }
-
   StartThread();
 }
 
@@ -47,23 +44,19 @@ void CameraNode::StartThread() {
 
 void CameraNode::Update(const unsigned int index) {
   cv::Mat img;
-  bool camera_info_send = false;
   while(running_) {
     camera_driver_[index]->StartReadCamera(img);
     if(!img.empty()) {
-      sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
+      auto img_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", img).toImageMsg();
       img_msg->header.frame_id = camera_param_.GetCameraParam()[index].camera_name;
-      img_msg->header.stamp = ros::Time::now();
-
+      img_msg->header.stamp = node_->now();
       camera_param_.GetCameraParam()[index].ros_camera_info->header.stamp = img_msg->header.stamp;
       img_pubs_[index].publish(img_msg, camera_param_.GetCameraParam()[index].ros_camera_info);
     }
   }
 }
 
-void CameraNode::StoptThread() {
-//TODO: To be implemented
-}
+void CameraNode::StoptThread() {}
 
 CameraNode::~CameraNode() {
   running_ = false;
@@ -74,19 +67,11 @@ CameraNode::~CameraNode() {
 }
 } //namespace roborts_camera
 
-void SignalHandler(int signal){
-  if(ros::isInitialized() && ros::isStarted() && ros::ok() && !ros::isShuttingDown()){
-    ros::shutdown();
-  }
-}
-
 int main(int argc, char **argv){
-  signal(SIGINT, SignalHandler);
-  signal(SIGTERM,SignalHandler);
-  ros::init(argc, argv, "roborts_camera_node", ros::init_options::NoSigintHandler);
-  roborts_camera::CameraNode camera_test;
-  ros::AsyncSpinner async_spinner(1);
-  async_spinner.start();
-  ros::waitForShutdown();
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("roborts_camera_node");
+  roborts_camera::CameraNode camera_node(node);
+  rclcpp::spin(node);
+  rclcpp::shutdown();
   return 0;
 }

@@ -52,108 +52,32 @@
 #ifndef ROBORTS_COSTMAP_FOOTPRINT_H
 #define ROBORTS_COSTMAP_FOOTPRINT_H
 
-#include <ros/ros.h>
-#include <geometry_msgs/Polygon.h>
-#include <geometry_msgs/PolygonStamped.h>
-#include <geometry_msgs/Point.h>
-#include <geometry_msgs/Point32.h>
+#include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/point32.hpp>
+#include <geometry_msgs/msg/polygon.hpp>
+#include <geometry_msgs/msg/polygon_stamped.hpp>
+#include <vector>
 
 namespace roborts_costmap {
 
-/**
- * @brief Calculate the extreme distances for the footprint
- *
- * @param footprint The footprint to examine
- * @param min_dist Output parameter of the minimum distance
- * @param max_dist Output parameter of the maximum distance
- */
-void CalculateMinAndMaxDistances(const std::vector<geometry_msgs::Point>& footprint,
+void CalculateMinAndMaxDistances(const std::vector<geometry_msgs::msg::Point>& footprint,
                                  double& min_dist, double& max_dist);
 
-/**
- * @brief Convert Point32 to Point
- */
-geometry_msgs::Point              ToPoint(geometry_msgs::Point32 pt);
+geometry_msgs::msg::Point32 ToPoint32(geometry_msgs::msg::Point pt);
 
-/**
- * @brief Convert Point to Point32
- */
-geometry_msgs::Point32            ToPoint32(geometry_msgs::Point   pt);
+geometry_msgs::msg::Point ToPoint(geometry_msgs::msg::Point32 pt);
 
-/**
- * @brief Convert vector of Points to Polygon msg
- */
-geometry_msgs::Polygon            ToPolygon(std::vector<geometry_msgs::Point> pts);
+geometry_msgs::msg::Polygon ToPolygon(std::vector<geometry_msgs::msg::Point> pts);
 
-/**
- * @brief Convert Polygon msg to vector of Points.
- */
-std::vector<geometry_msgs::Point> ToPointVector(geometry_msgs::Polygon polygon);
+std::vector<geometry_msgs::msg::Point> ToPointVector(geometry_msgs::msg::Polygon polygon);
 
-/**
- * @brief  Given a pose and base footprint, build the oriented footprint of the robot (list of Points)
- * @param  x The x position of the robot
- * @param  y The y position of the robot
- * @param  theta The orientation of the robot
- * @param  footprint_spec Basic shape of the footprint
- * @param  oriented_footprint Will be filled with the points in the oriented footprint of the robot
-*/
-void TransformFootprint(double x, double y, double theta, const std::vector<geometry_msgs::Point>& footprint_spec,
-                        std::vector<geometry_msgs::Point>& oriented_footprint);
+void TransformFootprint(double x, double y, double theta, const std::vector<geometry_msgs::msg::Point>& footprint_spec,
+                        std::vector<geometry_msgs::msg::Point>& oriented_footprint);
 
-/**
- * @brief  Given a pose and base footprint, build the oriented footprint of the robot (PolygonStamped)
- * @param  x The x position of the robot
- * @param  y The y position of the robot
- * @param  theta The orientation of the robot
- * @param  footprint_spec Basic shape of the footprint
- * @param  oriented_footprint Will be filled with the points in the oriented footprint of the robot
-*/
-void TransformFootprint(double x, double y, double theta, const std::vector<geometry_msgs::Point>& footprint_spec,
-                        geometry_msgs::PolygonStamped & oriented_footprint);
+void TransformFootprint(double x, double y, double theta, const std::vector<geometry_msgs::msg::Point>& footprint_spec,
+                        geometry_msgs::msg::PolygonStamped &oriented_footprint);
 
-/**
- * @brief Adds the specified amount of padding to the footprint (in place)
- */
-void PadFootprint(std::vector<geometry_msgs::Point>& footprint, double padding);
-
-/**
- * @brief Create a circular footprint from a given radius
- */
-std::vector<geometry_msgs::Point> MakeFootprintFromRadius(double radius);
-
-/**
- * @brief Make the footprint from the given string.
- *
- * Format should be bracketed array of arrays of floats, like so: [[1.0, 2.2], [3.3, 4.2], ...]
- *
- */
-bool MakeFootprintFromString(const std::string& footprint_string, std::vector<geometry_msgs::Point>& footprint);
-
-/**
- * @brief Read the ros-params "footprint" and/or "robot_radius" from
- * the given NodeHandle using searchParam() to go up the tree.
- */
-std::vector<geometry_msgs::Point> MakeFootprintFromParams(ros::NodeHandle& nh);
-
-/**
- * @brief Create the footprint from the given XmlRpcValue.
- *
- * @param footprint_xmlrpc should be an array of arrays, where the
- * top-level array should have 3 or more elements, and the
- * sub-arrays should all have exactly 2 elements (x and y
- * coordinates).
- *
- * @param full_param_name this is the full name of the rosparam from
- * which the footprint_xmlrpc value came.  It is used only for
- * reporting errors. */
-std::vector<geometry_msgs::Point> MakeFootprintFromXMLRPC(XmlRpc::XmlRpcValue& footprint_xmlrpc,
-                                const std::string& full_param_name);
-
-/** @brief Write the current unpadded_footprint_ to the "footprint"
- * parameter of the given NodeHandle so that dynamic_reconfigure
- * will see the new value. */
-void WriteFootprintToParam(ros::NodeHandle& nh, const std::vector<geometry_msgs::Point>& footprint);
+void PadFootprint(std::vector<geometry_msgs::msg::Point>& footprint, double padding);
 
 } //namespace roborts_costmap
 #endif  // ROBORTS_COSTMAP_FOOTPRINT_H

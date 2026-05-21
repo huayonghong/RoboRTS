@@ -49,16 +49,22 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *
  *********************************************************************/
+#include <functional>
+
+#include <ament_index_cpp/get_package_share_directory.hpp>
+
+#include <rclcpp/rclcpp.hpp>
+
 #include "obstacle_layer_setting.pb.h"
 #include "obstacle_layer.h"
 
 namespace roborts_costmap {
 
 void ObstacleLayer::OnInitialize() {
-  ros::NodeHandle nh;
   ParaObstacleLayer para_obstacle;
 
-  std::string obstacle_map = ros::package::getPath("roborts_costmap") + \
+  std::string obstacle_map =
+      ament_index_cpp::get_package_share_directory("roborts_costmap") +
       "/config/obstacle_layer_config.prototxt";
   roborts_common::ReadProtoFromTextFile(obstacle_map.c_str(), &para_obstacle);
   double observation_keep_time = 0.1, expected_update_rate = 10.0, min_obstacle_height = 0.2, \
@@ -90,17 +96,12 @@ void ObstacleLayer::OnInitialize() {
   is_current_ = true;
   global_frame_ = layered_costmap_->GetGlobalFrameID();
   ObstacleLayer::MatchSize();
-  observation_buffers_.push_back(std::shared_ptr<ObservationBuffer>(new ObservationBuffer(topic_string,
-                                                                                            observation_keep_time,
-                                                                                            expected_update_rate,
-                                                                                            min_obstacle_height,
-                                                                                            max_obstacle_height,
-                                                                                            obstacle_range,
-                                                                                            raytrace_range,
-                                                                                            *tf_,
-                                                                                            global_frame_,
-                                                                                            sensor_frame,
-                                                                                            transform_tolerance)));
+
+  auto clock = node_->get_clock();
+  observation_buffers_.push_back(std::make_shared<ObservationBuffer>(
+      topic_string, observation_keep_time, expected_update_rate, min_obstacle_height,
+      max_obstacle_height, obstacle_range, raytrace_range, *tf_, global_frame_,
+      sensor_frame, transform_tolerance, clock));
   if (marking) {
     marking_buffers_.push_back(observation_buffers_.back());
   }
@@ -108,62 +109,48 @@ void ObstacleLayer::OnInitialize() {
     clearing_buffers_.push_back(observation_buffers_.back());
   } 
   reset_time_ = std::chrono::system_clock::now();
-  std::shared_ptr<message_filters::Subscriber<sensor_msgs::LaserScan>
-  > sub(new message_filters::Subscriber<sensor_msgs::LaserScan>(nh, topic_string, 50));
-  std::shared_ptr<tf::MessageFilter<sensor_msgs::LaserScan>
-  > filter(new tf::MessageFilter<sensor_msgs::LaserScan>(*sub, *tf_, global_frame_, 50));
+
+  auto buffer = observation_buffers_.back();
   if (inf_is_valid) {
-    filter->registerCallback(
-        boost::bind(&ObstacleLayer::LaserScanValidInfoCallback, this, _1, observation_buffers_.back()));
+    observation_subscribers_.push_back(
+        node_->create_subscription<sensor_msgs::msg::LaserScan>(
+            topic_string, rclcpp::QoS(50),
+            std::bind(&ObstacleLayer::LaserScanValidInfoCallback, this,
+                      std::placeholders::_1, buffer)));
   } else {
-    filter->registerCallback(
-        boost::bind(&ObstacleLayer::LaserScanCallback, this, _1, observation_buffers_.back()));
+    observation_subscribers_.push_back(
+        node_->create_subscription<sensor_msgs::msg::LaserScan>(
+            topic_string, rclcpp::QoS(50),
+            std::bind(&ObstacleLayer::LaserScanCallback, this, std::placeholders::_1,
+                      buffer)));
   }
-  observation_subscribers_.push_back(sub);
-  observation_notifiers_.push_back(filter);
-  observation_notifiers_.back()->setTolerance(ros::Duration(0.05));
-  std::vector<std::string> target_frames;
-  target_frames.push_back(global_frame_);
-  target_frames.push_back(sensor_frame);
-  observation_notifiers_.back()->setTargetFrames(target_frames);
+
   is_enabled_ = true;
 }
 
-void ObstacleLayer::LaserScanCallback(const sensor_msgs::LaserScanConstPtr &message,
-                                      const std::shared_ptr<ObservationBuffer> &buffer) {
-  sensor_msgs::PointCloud2 temp_cloud;
-  temp_cloud.header = message->header;
-  try {
-    projector_.transformLaserScanToPointCloud(temp_cloud.header.frame_id, *message, temp_cloud, *tf_);
-  }
-  catch (tf::TransformException &ex) {
-    projector_.projectLaser(*message, temp_cloud);
-  }
+void ObstacleLayer::LaserScanCallback(
+    const sensor_msgs::msg::LaserScan::SharedPtr message,
+    const std::shared_ptr<ObservationBuffer> &buffer) {
+  sensor_msgs::msg::PointCloud2 temp_cloud;
+  projector_.projectLaser(*message, temp_cloud);
   buffer->Lock();
   buffer->BufferCloud(temp_cloud);
   buffer->Unlock();
 }
 
-void ObstacleLayer::LaserScanValidInfoCallback(const sensor_msgs::LaserScanConstPtr &raw_message,
-                                               const std::shared_ptr<ObservationBuffer> &buffer) {
-  float epsilon = 0.0001, range;
-  sensor_msgs::LaserScan message = *raw_message;
-  for (size_t i = 0; i < message.ranges.size(); i++) {
-    range = message.ranges[i];
+void ObstacleLayer::LaserScanValidInfoCallback(
+    const sensor_msgs::msg::LaserScan::SharedPtr raw_message,
+    const std::shared_ptr<ObservationBuffer> &buffer) {
+  float epsilon = 0.0001f;
+  sensor_msgs::msg::LaserScan message = *raw_message;
+  for (size_t i = 0; i < message.ranges.size(); ++i) {
+    float range = message.ranges[i];
     if (!std::isfinite(range) && range > 0) {
       message.ranges[i] = message.range_max - epsilon;
     }
   }
-  sensor_msgs::PointCloud2 cloud;
-  cloud.header = message.header;
-  try {
-    projector_.transformLaserScanToPointCloud(message.header.frame_id, message, cloud, *tf_);
-  }
-  catch (tf::TransformException &ex) {
-    ROS_ERROR("High fidelity enabled, but TF returned a transform exception to frame %s: %s", \
-        global_frame_.c_str(), ex.what());
-    projector_.projectLaser(message, cloud);
-  }
+  sensor_msgs::msg::PointCloud2 cloud;
+  projector_.projectLaser(message, cloud);
   buffer->Lock();
   buffer->BufferCloud(cloud);
   buffer->Unlock();
@@ -183,7 +170,7 @@ void ObstacleLayer::UpdateBounds(double robot_x,
     ResetMaps();
   }
   if (!is_enabled_) {
-    ROS_ERROR("Obstacle layer is not enabled.");
+    RCLCPP_ERROR(rclcpp::get_logger("costmap"), "Obstacle layer is not enabled.");
     return;
   }
   UseExtraBounds(min_x, min_y, max_x, max_y);
@@ -235,7 +222,7 @@ void ObstacleLayer::UpdateBounds(double robot_x,
 
 void ObstacleLayer::UpdateCosts(Costmap2D &master_grid, int min_i, int min_j, int max_i, int max_j) {
   if (!is_enabled_) {
-    ROS_WARN("Obstacle layer is not enabled");
+    RCLCPP_WARN(rclcpp::get_logger("costmap"), "Obstacle layer is not enabled");
     return;
   }
 
@@ -256,23 +243,14 @@ void ObstacleLayer::UpdateCosts(Costmap2D &master_grid, int min_i, int min_j, in
 }
 
 void ObstacleLayer::Activate() {
-  for (size_t i = 0; i < observation_subscribers_.size(); ++i) {
-    if (observation_subscribers_[i] != nullptr) {
-      observation_subscribers_[i]->subscribe();
-    }
-  }
-  for (size_t i = 0; i < observation_buffers_.size(); ++i) {
-    if (observation_buffers_[i] != nullptr) {
-      observation_buffers_[i]->ResetLastUpdated();
+  for (const auto &observation_buffer : observation_buffers_) {
+    if (observation_buffer != nullptr) {
+      observation_buffer->ResetLastUpdated();
     }
   }
 }
 
 void ObstacleLayer::Deactivate() {
-  for (unsigned int i = 0; i < observation_subscribers_.size(); ++i) {
-    if (observation_subscribers_[i] != nullptr)
-      observation_subscribers_[i]->unsubscribe();
-  }
 }
 
 void ObstacleLayer::Reset() {

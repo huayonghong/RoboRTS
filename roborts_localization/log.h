@@ -7,8 +7,8 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
@@ -18,40 +18,25 @@
 #ifndef ROBORTS_LOCALIZATION_LOG_H
 #define ROBORTS_LOCALIZATION_LOG_H
 
+#include <rclcpp/rclcpp.hpp>
+#include <fstream>
 #include <iostream>
+
 #include "glog/logging.h"
 #include "glog/raw_logging.h"
-#include <fstream>
 
-//#define DLOG_INFO std::cout
-//#define DLOG_ERROR std::cout
-
-// GLog Wrapper
 namespace roborts_localization {
 
-#define LOG_INFO LOG(INFO)
-#define LOG_WARNING LOG(WARNING)
-#define LOG_ERROR LOG(ERROR)
-#define LOG_FATAL LOG(FATAL)
+constexpr const char kLocalizationLoggerName[] = "localization";
 
-#define LOG_INFO_IF(condition) LOG_IF(INFO,condition)
-#define LOG_WARNING_IF(condition) LOG_IF(WARNING,condition)
-#define LOG_ERROR_IF(condition) LOG_IF(ERROR,condition)
-#define LOG_FATAL_IF(condition) LOG_IF(FATAL,condition)
+inline rclcpp::Logger localization_logger() {
+  return rclcpp::get_logger(kLocalizationLoggerName);
+}
 
-#define LOG_INFO_EVERY(freq) LOG_EVERY_N(INFO, freq)
-#define LOG_WARNING_EVERY(freq) LOG_EVERY_N(WARNING, freq)
-#define LOG_ERROR_EVERY(freq) LOG_EVERY_N(ERROR, freq)
-
-#define DLOG_INFO DLOG(INFO)
-#define DLOG_WARNING DLOG(WARNING)
-#define DLOG_ERROR DLOG(WARNING)
-
-#define LOG_WARNING_FIRST_N(times) LOG_FIRST_N(WARNING, times)
-
+// GLOG remains for CHECK_*, VLOG, and lifecycle of InitGoogleLogging.
 class GLogWrapper {
  public:
-  GLogWrapper(char *program) {
+  explicit GLogWrapper(char *program) {
     google::InitGoogleLogging(program);
     FLAGS_stderrthreshold = google::WARNING;
     FLAGS_colorlogtostderr = true;
@@ -64,6 +49,6 @@ class GLogWrapper {
   }
 };
 
-}// roborts_localization
+}  // namespace roborts_localization
 
-#endif //ROBORTS_LOCALIZATION_LOG_H
+#endif  // ROBORTS_LOCALIZATION_LOG_H

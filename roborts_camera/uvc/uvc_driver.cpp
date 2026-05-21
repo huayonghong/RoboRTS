@@ -15,11 +15,10 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  ***************************************************************************/
 
-#include <cv_bridge/cv_bridge.h>
-#include <image_transport/image_transport.h>
-
 #include <linux/videodev2.h>
 #include <sys/ioctl.h>
+
+#include <rclcpp/rclcpp.hpp>
 
 #include "uvc_driver.h"
 
@@ -32,7 +31,10 @@ void UVCDriver::StartReadCamera(cv::Mat &img) {
   if(!camera_initialized_){
     camera_info_.cap_handle.open(camera_info_.camera_path);
     SetCameraExposure(camera_info_.camera_path, camera_info_.exposure_value);
-    ROS_ASSERT_MSG(camera_info_.cap_handle.isOpened(), "Cannot open %s .", cameras_[camera_num].video_path.c_str());
+    if (!camera_info_.cap_handle.isOpened()) {
+      RCLCPP_ERROR(rclcpp::get_logger("uvc_driver"), "Cannot open camera");
+      return;
+    }
     camera_initialized_ = true;
   }
   else {

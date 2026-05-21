@@ -40,8 +40,8 @@
 #define ROBORTS_LOCALIZATION_R_MATH_H
 
 #include <Eigen/Dense>
+#include <array>
 #include <cmath>
-#include <boost/array.hpp>
 #include "types.h"
 
 namespace roborts_localization {
@@ -143,7 +143,7 @@ inline bool Near(T num1, T num2, T bound) {
 	}
 }
 
-inline Mat3d MsgCovarianceToMat3d(const boost::array<double, 36> &msg_cov) {
+inline Mat3d MsgCovarianceToMat3d(const std::array<double, 36> &msg_cov) {
 	Mat3d pose_cov;
 	pose_cov.setZero();
 

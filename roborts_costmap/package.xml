@@ -1,27 +1,27 @@
-<package>
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
     <name>roborts_costmap</name>
     <version>1.0.0</version>
-    <description>
-        The roborts costmap package provides costmap representation of the environment for RoboMaster AI Robot
-    </description>
+    <description>Costmap representation for RoboMaster AI Robot</description>
     <author>RoboMaster</author>
     <maintainer email="robomaster@dji.com">RoboMaster</maintainer>
-    <license>GPL 3.0 </license>
-    <url>https://github.com/RoboMaster/RoboRTS</url>
+    <license>GPL-3.0</license>
 
-    <buildtool_depend>catkin</buildtool_depend>
+    <buildtool_depend>ament_cmake</buildtool_depend>
 
-    <build_depend>actionlib</build_depend>
-    <build_depend>roscpp</build_depend>
-    <build_depend>rospy</build_depend>
-    <build_depend>roborts_common</build_depend>
+    <depend>rclcpp</depend>
+    <depend>tf2</depend>
+    <depend>tf2_ros</depend>
+    <depend>tf2_geometry_msgs</depend>
+    <depend>tf2_sensor_msgs</depend>
+    <depend>pcl_conversions</depend>
+    <depend>sensor_msgs</depend>
+    <depend>geometry_msgs</depend>
+    <depend>nav_msgs</depend>
+    <depend>laser_geometry</depend>
+    <depend>roborts_common</depend>
+    <depend>ament_index_cpp</depend>
 
-    <run_depend>actionlib</run_depend>
-    <run_depend>roscpp</run_depend>
-    <run_depend>rospy</run_depend>
-    <run_depend>roborts_common</run_depend>
-
-    <export>
-    </export>
-
+    <export><build_type>ament_cmake</build_type></export>
 </package>

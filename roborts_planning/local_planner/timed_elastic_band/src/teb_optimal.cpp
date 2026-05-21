@@ -53,6 +53,8 @@
  * Author: Christoph Rösmann
  *********************************************************************/
 
+#include <rclcpp/rclcpp.hpp>
+
 #include "timed_elastic_band/teb_optimal.h"
 
 namespace roborts_local_planner {
@@ -205,23 +207,23 @@ namespace roborts_local_planner {
 
     }
 
-    void TebOptimal::SetVelocityStart(const geometry_msgs::Twist &vel_start) {
+    void TebOptimal::SetVelocityStart(const geometry_msgs::msg::Twist &vel_start) {
         vel_start_.first = true;
         vel_start_.second.linear.x = vel_start.linear.x;
         vel_start_.second.linear.y = vel_start.linear.y;
         vel_start_.second.angular.z = vel_start.angular.z;
     }
 
-    void TebOptimal::SetVelocityEnd(const geometry_msgs::Twist &vel_end) {
+    void TebOptimal::SetVelocityEnd(const geometry_msgs::msg::Twist &vel_end) {
         vel_end_.first = true;
         vel_end_.second = vel_end;
     }
 
     bool TebOptimal::Optimal(std::vector<DataBase> &initial_plan,
-                             const geometry_msgs::Twist *start_vel,
+                             const geometry_msgs::msg::Twist *start_vel,
                              bool free_goal_vel, bool micro_control) {
         if (!initialized_) {
-            ROS_ERROR("optimal not be initialized");
+            RCLCPP_ERROR(rclcpp::get_logger("local_planner"), "optimal not be initialized");
         }
 
         if (!vertex_console_.IsInit()) {
@@ -265,10 +267,10 @@ namespace roborts_local_planner {
 
     bool TebOptimal::Optimal(const DataBase &start,
                              const DataBase &goal,
-                             const geometry_msgs::Twist *start_vel,
+                             const geometry_msgs::msg::Twist *start_vel,
                              bool free_goal_vel, bool micro_control) {
         if (!initialized_) {
-            ROS_ERROR("optimal not be initialized");
+            RCLCPP_ERROR(rclcpp::get_logger("local_planner"), "optimal not be initialized");
         }
         if (!vertex_console_.IsInit()) {
             vertex_console_.InitTEBtoGoal(start, goal, 0, 1, trajectory_info_.min_samples(),
@@ -300,7 +302,7 @@ namespace roborts_local_planner {
 
     bool TebOptimal::BuildGraph(double weight_multiplier) {
         if (!optimizer_->edges().empty() || !optimizer_->vertices().empty()) {
-            ROS_WARN("Cannot build graph, because it is not empty. Call graphClear()!");
+            RCLCPP_WARN(rclcpp::get_logger("local_planner"), "Cannot build graph, because it is not empty. Call graphClear()!");
             return false;
         }
 
@@ -335,7 +337,7 @@ namespace roborts_local_planner {
 
     bool TebOptimal::OptimizeGraph(int no_iterations, bool clear_after) {
         if (robot_info_.max_vel_x() < 0.01) {
-            ROS_WARN("Robot Max Velocity is smaller than 0.01m/s");
+            RCLCPP_WARN(rclcpp::get_logger("local_planner"), "Robot Max Velocity is smaller than 0.01m/s");
             if (clear_after) {
                 ClearGraph();
             }
@@ -343,7 +345,7 @@ namespace roborts_local_planner {
         }
 
         if (!vertex_console_.IsInit() || vertex_console_.SizePoses() < trajectory_info_.min_samples()) {
-            ROS_WARN("teb size is too small");
+            RCLCPP_WARN(rclcpp::get_logger("local_planner"), "teb size is too small");
             if (clear_after) {
                 ClearGraph();
             }
@@ -355,7 +357,7 @@ namespace roborts_local_planner {
 
         int iter = optimizer_->optimize(no_iterations);
         if(!iter) {
-            ROS_ERROR("optimize failed");
+            RCLCPP_ERROR(rclcpp::get_logger("local_planner"), "optimize failed");
             return false;
         }
         if (clear_after) {
@@ -976,7 +978,7 @@ namespace roborts_local_planner {
                                  double &acc_x, double &acc_y, double &acc_omega) const {
 
         if (vertex_console_.SizePoses()<2) {
-            ROS_ERROR("pose is too less to compute the velocity");
+            RCLCPP_ERROR(rclcpp::get_logger("local_planner"), "pose is too less to compute the velocity");
             vx = 0;
             vy = 0;
             omega = 0;
@@ -985,7 +987,7 @@ namespace roborts_local_planner {
 
         double dt = vertex_console_.TimeDiff(0);
         if (dt<=0) {
-            ROS_ERROR("the time between two pose is nagetive");
+            RCLCPP_ERROR(rclcpp::get_logger("local_planner"), "the time between two pose is nagetive");
             vx = 0;
             vy = 0;
             omega = 0;
