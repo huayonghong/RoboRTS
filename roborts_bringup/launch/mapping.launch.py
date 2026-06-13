@@ -27,6 +27,7 @@ def generate_launch_description():
             'frame_id': 'base_laser_link',
             'inverted': False,
             'angle_compensate': True,
+            'scan_mode': 'Standard',
         }],
     )
 

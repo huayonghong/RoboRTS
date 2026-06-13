@@ -20,6 +20,21 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(bringup_dir, 'launch', 'static_tf.launch.py'))
     )
 
+    rplidar_node = Node(
+        package='rplidar_ros',
+        executable='rplidar_node',
+        name='rplidar_node',
+        output='screen',
+        parameters=[{
+            'serial_port': '/dev/rplidar',
+            'serial_baudrate': 115200,
+            'frame_id': 'base_laser_link',
+            'inverted': False,
+            'angle_compensate': True,
+            'scan_mode': 'Standard',
+        }],
+    )
+
     map_server = Node(
         package='nav2_map_server',
         executable='map_server',
@@ -71,6 +86,7 @@ def generate_launch_description():
         map_arg,
         base_launch,
         static_tf_launch,
+        rplidar_node,
         map_server,
         map_server_lifecycle,
         localization_node,

@@ -29,6 +29,8 @@
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
+#include <tf2_ros/create_timer_ros.hpp>
+
 namespace roborts_localization {
 
 namespace {
@@ -95,6 +97,9 @@ bool LocalizationNode::Init() {
   publish_visualize_ = localization_config.publish_visualize;
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node_->get_clock());
+  // ROS2: MessageFilter / waitForTransform need a timer interface on the buffer.
+  tf_buffer_->setCreateTimerInterface(std::make_shared<tf2_ros::CreateTimerROS>(
+      node_->get_node_base_interface(), node_->get_node_timers_interface()));
 
   tf_listener_ptr_ =
       std::make_unique<tf2_ros::TransformListener>(*tf_buffer_, node_);
