@@ -22,6 +22,7 @@ find_package(pcl_conversions REQUIRED)
 find_package(laser_geometry REQUIRED)
 find_package(roborts_common REQUIRED)
 find_package(ament_index_cpp REQUIRED)
+find_package(tf2_eigen REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(ProtoBuf REQUIRED)
 find_package(PCL REQUIRED)
@@ -57,6 +58,7 @@ add_library(roborts_costmap SHARED
 
 target_include_directories(roborts_costmap PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/costmap>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/proto>
   $<INSTALL_INTERFACE:include>
   ${EIGEN3_INCLUDE_DIRS}
@@ -64,7 +66,7 @@ target_include_directories(roborts_costmap PUBLIC
 )
 
 ament_target_dependencies(roborts_costmap
-  rclcpp tf2 tf2_ros tf2_geometry_msgs tf2_sensor_msgs
+  rclcpp tf2 tf2_ros tf2_geometry_msgs tf2_sensor_msgs tf2_eigen
   sensor_msgs nav_msgs geometry_msgs pcl_conversions
   laser_geometry roborts_common ament_index_cpp
 )
@@ -86,7 +88,7 @@ install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
 
 ament_export_include_directories(include)
 ament_export_dependencies(
-  rclcpp tf2 tf2_ros tf2_geometry_msgs tf2_sensor_msgs
+  rclcpp tf2 tf2_ros tf2_geometry_msgs tf2_sensor_msgs tf2_eigen
   sensor_msgs nav_msgs geometry_msgs pcl_conversions
   laser_geometry roborts_common ament_index_cpp
 )

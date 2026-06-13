@@ -15,7 +15,6 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  ***************************************************************************/
 
-#include <functional>
 #include <string>
 
 #include <opencv2/opencv.hpp>
@@ -45,8 +44,7 @@ int main(int argc, char **argv) {
   image_transport::ImageTransport it(node);
 
   image_transport::Subscriber sub = it.subscribe(
-      topic_name, rclcpp::QoS(20),
-      std::bind(&ReceiveImg, std::placeholders::_1));
+      topic_name, 20, ReceiveImg);
 
   rclcpp::spin(node);
   rclcpp::shutdown();

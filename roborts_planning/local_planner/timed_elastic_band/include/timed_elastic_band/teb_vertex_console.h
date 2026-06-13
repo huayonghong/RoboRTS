@@ -58,6 +58,7 @@
 
 #include <complex>
 #include <iterator>
+#include <optional>
 
 #include <nav_msgs/msg/path.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -180,10 +181,10 @@ class TebVertexConsole {
                      Fun fun_position,
                      double max_vel_x,
                      double max_vel_theta,
-                     boost::optional<double> max_acc_x,
-                     boost::optional<double> max_acc_theta,
-                     boost::optional<double> start_orientation,
-                     boost::optional<double> goal_orientation,
+                     std::optional<double> max_acc_x,
+                     std::optional<double> max_acc_theta,
+                     std::optional<double> start_orientation,
+                     std::optional<double> goal_orientation,
                      int min_samples = 3,
                      bool guess_backwards_motion = false);
 
@@ -194,8 +195,8 @@ class TebVertexConsole {
                      bool guess_backwards_motion = false,
                      bool micro_control = false);
 
-  void UpdateAndPruneTEB(boost::optional<const DataBase &> new_start,
-                         boost::optional<const DataBase &> new_goal,
+  void UpdateAndPruneTEB(std::optional<DataBase> new_start,
+                         std::optional<DataBase> new_goal,
                          int min_samples = 3);
 
   void AutoResize(double dt_ref, double dt_hysteresis, int min_samples = 3, int max_samples = 1000);

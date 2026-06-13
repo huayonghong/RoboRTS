@@ -97,7 +97,7 @@ class TebVertexTimeDiff : public g2o::BaseVertex<1, double> {
   }
 
   virtual bool read(std::istream& is) {
-
+    return true;
   }
 
   virtual bool write(std::ostream& os) const {

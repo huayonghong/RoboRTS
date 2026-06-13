@@ -63,14 +63,14 @@ bool TebVertexConsole::InitTEBtoGoal(BidirIter path_start,
                                      Fun fun_position,
                                      double max_vel_x,
                                      double max_vel_theta,
-                                     boost::optional<double> max_acc_x,
-                                     boost::optional<double> max_acc_theta,
-                                     boost::optional<double> start_orientation,
-                                     boost::optional<double> goal_orientation,
+                                     std::optional<double> max_acc_x,
+                                     std::optional<double> max_acc_theta,
+                                     std::optional<double> start_orientation,
+                                     std::optional<double> goal_orientation,
                                      int min_samples,
                                      bool guess_backwards_motion) {
   Eigen::Vector2d start_position = fun_position(*path_start);
-  Eigen::Vector2d goal_position = fun_position(*boost::prior(path_end));
+  Eigen::Vector2d goal_position = fun_position(*std::prev(path_end));
 
   bool backwards = false;
 
@@ -122,7 +122,7 @@ bool TebVertexConsole::InitTEBtoGoal(BidirIter path_start,
         yaw = g2o::normalize_theta(yaw + M_PI);
       AddPoseAndTimeDiff(curr_point, yaw, timestep);
 
-      Eigen::Vector2d diff_next = fun_position(*boost::next(path_start))
+      Eigen::Vector2d diff_next = fun_position(*std::next(path_start))
           - curr_point;
       double ang_diff = std::abs(g2o::normalize_theta(atan2(diff_next[1], diff_next[0])
                                                           - atan2(diff_last[1], diff_last[0])));

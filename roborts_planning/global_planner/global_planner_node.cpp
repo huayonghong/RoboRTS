@@ -18,6 +18,7 @@
 #include <cmath>
 
 #include <tf2/utils.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include "global_planner_node.h"
 
@@ -36,7 +37,9 @@ GlobalPlannerNode::GlobalPlannerNode()
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
+}
 
+bool GlobalPlannerNode::InitializeNode() {
   action_server_ = rclcpp_action::create_server<GlobalPlannerAction>(
       shared_from_this(),
       "global_planner_node_action",
@@ -47,10 +50,12 @@ GlobalPlannerNode::GlobalPlannerNode()
   if (Init().IsOK()) {
     RCLCPP_INFO(get_logger(), "Global planner initialization completed.");
     StartPlanning();
-  } else {
-    RCLCPP_ERROR(get_logger(), "Initialization failed.");
-    SetNodeState(NodeState::FAILURE);
+    return true;
   }
+
+  RCLCPP_ERROR(get_logger(), "Initialization failed.");
+  SetNodeState(NodeState::FAILURE);
+  return false;
 }
 
 ErrorInfo GlobalPlannerNode::Init() {
@@ -339,6 +344,10 @@ GlobalPlannerNode::~GlobalPlannerNode() {
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<roborts_global_planner::GlobalPlannerNode>();
+  if (!node->InitializeNode()) {
+    rclcpp::shutdown();
+    return 1;
+  }
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

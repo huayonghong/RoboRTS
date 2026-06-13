@@ -107,24 +107,24 @@ namespace roborts_local_planner {
 
     void TebOptimal::RegisterG2OTypes() {
         g2o::Factory* factory = g2o::Factory::instance();
-        factory->registerType("TEB_VERTEX_POSE", new g2o::HyperGraphElementCreator<TebVertexPose>);
-        factory->registerType("TEB_VERTEX_TIMEDIFF", new g2o::HyperGraphElementCreator<TebVertexTimeDiff>);
+        factory->registerType("TEB_VERTEX_POSE", std::make_shared<g2o::HyperGraphElementCreator<TebVertexPose>>());
+        factory->registerType("TEB_VERTEX_TIMEDIFF", std::make_shared<g2o::HyperGraphElementCreator<TebVertexTimeDiff>>());
 
-        factory->registerType("TIME_OPTIMAL_EDGE", new g2o::HyperGraphElementCreator<TimeOptimalEdge>);
-        factory->registerType("VELOCITY_EDGE", new g2o::HyperGraphElementCreator<VelocityEdge>);
-        factory->registerType("VELOCITY_HOLONOMIC_EDGE", new g2o::HyperGraphElementCreator<VelocityHolonomicEdge>);
-        factory->registerType("ACCELERATION_EDGE", new g2o::HyperGraphElementCreator<AccelerationEdge>);
-        factory->registerType("ACCELERATION_START_EDGE", new g2o::HyperGraphElementCreator<AccelerationStartEdge>);
-        factory->registerType("ACCELERATION_GOAL_EDGE", new g2o::HyperGraphElementCreator<AccelerationGoalEdge>);
-        factory->registerType("ACCELERATION_HOLONOMIC_EDGE", new g2o::HyperGraphElementCreator<AccelerationHolonomicEdge>);
-        factory->registerType("ACCELERATION_HOLONOMIC_START_EDGE", new g2o::HyperGraphElementCreator<AccelerationHolonomicStartEdge>);
-        factory->registerType("ACCELERATION_HOLONOMIC_GOAL_EDGE", new g2o::HyperGraphElementCreator<AccelerationHolonomicGoalEdge>);
-        factory->registerType("KINEMATICS_DIFF_DRIVE_EDGE", new g2o::HyperGraphElementCreator<KinematicsDiffDriveEdge>);
-        factory->registerType("KINEMATICS_CARLIKE_EDGE", new g2o::HyperGraphElementCreator<KinematicsCarlikeEdge>);
-        factory->registerType("OBSTACLE_EDGE", new g2o::HyperGraphElementCreator<ObstacleEdge>);
-        factory->registerType("INFLATED_OBSTACLE_EDGE", new g2o::HyperGraphElementCreator<InflatedObstacleEdge>);
-        factory->registerType("VIA_POINT_EDGE", new g2o::HyperGraphElementCreator<ViaPointEdge>);
-        factory->registerType("PREFER_ROTDIR_EDGE", new g2o::HyperGraphElementCreator<PreferRotDirEdge>);
+        factory->registerType("TIME_OPTIMAL_EDGE", std::make_shared<g2o::HyperGraphElementCreator<TimeOptimalEdge>>());
+        factory->registerType("VELOCITY_EDGE", std::make_shared<g2o::HyperGraphElementCreator<VelocityEdge>>());
+        factory->registerType("VELOCITY_HOLONOMIC_EDGE", std::make_shared<g2o::HyperGraphElementCreator<VelocityHolonomicEdge>>());
+        factory->registerType("ACCELERATION_EDGE", std::make_shared<g2o::HyperGraphElementCreator<AccelerationEdge>>());
+        factory->registerType("ACCELERATION_START_EDGE", std::make_shared<g2o::HyperGraphElementCreator<AccelerationStartEdge>>());
+        factory->registerType("ACCELERATION_GOAL_EDGE", std::make_shared<g2o::HyperGraphElementCreator<AccelerationGoalEdge>>());
+        factory->registerType("ACCELERATION_HOLONOMIC_EDGE", std::make_shared<g2o::HyperGraphElementCreator<AccelerationHolonomicEdge>>());
+        factory->registerType("ACCELERATION_HOLONOMIC_START_EDGE", std::make_shared<g2o::HyperGraphElementCreator<AccelerationHolonomicStartEdge>>());
+        factory->registerType("ACCELERATION_HOLONOMIC_GOAL_EDGE", std::make_shared<g2o::HyperGraphElementCreator<AccelerationHolonomicGoalEdge>>());
+        factory->registerType("KINEMATICS_DIFF_DRIVE_EDGE", std::make_shared<g2o::HyperGraphElementCreator<KinematicsDiffDriveEdge>>());
+        factory->registerType("KINEMATICS_CARLIKE_EDGE", std::make_shared<g2o::HyperGraphElementCreator<KinematicsCarlikeEdge>>());
+        factory->registerType("OBSTACLE_EDGE", std::make_shared<g2o::HyperGraphElementCreator<ObstacleEdge>>());
+        factory->registerType("INFLATED_OBSTACLE_EDGE", std::make_shared<g2o::HyperGraphElementCreator<InflatedObstacleEdge>>());
+        factory->registerType("VIA_POINT_EDGE", std::make_shared<g2o::HyperGraphElementCreator<ViaPointEdge>>());
+        factory->registerType("PREFER_ROTDIR_EDGE", std::make_shared<g2o::HyperGraphElementCreator<PreferRotDirEdge>>());
         return;
     }
 

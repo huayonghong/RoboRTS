@@ -115,14 +115,16 @@ void ObstacleLayer::OnInitialize() {
     observation_subscribers_.push_back(
         node_->create_subscription<sensor_msgs::msg::LaserScan>(
             topic_string, rclcpp::QoS(50),
-            std::bind(&ObstacleLayer::LaserScanValidInfoCallback, this,
-                      std::placeholders::_1, buffer)));
+            [this, buffer](const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+              LaserScanValidInfoCallback(msg, buffer);
+            }));
   } else {
     observation_subscribers_.push_back(
         node_->create_subscription<sensor_msgs::msg::LaserScan>(
             topic_string, rclcpp::QoS(50),
-            std::bind(&ObstacleLayer::LaserScanCallback, this, std::placeholders::_1,
-                      buffer)));
+            [this, buffer](const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+              LaserScanCallback(msg, buffer);
+            }));
   }
 
   is_enabled_ = true;

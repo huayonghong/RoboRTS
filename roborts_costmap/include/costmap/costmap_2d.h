@@ -53,6 +53,9 @@
 #define ROBORTS_COSTMAP_COSTMAP_2D_H
 
 #include <geometry_msgs/msg/point.hpp>
+#include <climits>
+#include <cmath>
+#include <cstring>
 #include <mutex>
 #include <queue>
 #include <vector>

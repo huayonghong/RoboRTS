@@ -50,6 +50,8 @@
  *
  *********************************************************************/
 
+#include <cstring>
+#include <cmath>
 #include "costmap_2d.h"
 
 namespace roborts_costmap {

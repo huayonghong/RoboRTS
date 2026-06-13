@@ -72,4 +72,6 @@ void UVCDriver::SetCameraExposure(std::string id, int val)
 UVCDriver::~UVCDriver() {
 }
 
+roborts_common::REGISTER_ALGORITHM(CameraBase, "uvc", UVCDriver, CameraInfo);
+
 } //namespace roborts_camera

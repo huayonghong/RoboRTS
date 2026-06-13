@@ -41,7 +41,9 @@ LocalPlannerNode::LocalPlannerNode()
       frequency_(10.0) {
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
+}
 
+bool LocalPlannerNode::InitializeNode() {
   action_server_ = rclcpp_action::create_server<LocalPlannerAction>(
       shared_from_this(), "local_planner_node_action",
       std::bind(&LocalPlannerNode::HandleGoal, this, std::placeholders::_1, std::placeholders::_2),
@@ -50,10 +52,12 @@ LocalPlannerNode::LocalPlannerNode()
 
   if (Init().IsOK()) {
     RCLCPP_INFO(get_logger(), "local planner initialize completed.");
-  } else {
-    RCLCPP_WARN(get_logger(), "local planner initialize failed.");
-    SetNodeState(NodeState::FAILURE);
+    return true;
   }
+
+  RCLCPP_WARN(get_logger(), "local planner initialize failed.");
+  SetNodeState(NodeState::FAILURE);
+  return false;
 }
 
 LocalPlannerNode::~LocalPlannerNode() { StopPlanning(); }
@@ -297,6 +301,10 @@ int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
 
   auto node = std::make_shared<roborts_local_planner::LocalPlannerNode>();
+  if (!node->InitializeNode()) {
+    rclcpp::shutdown();
+    return 1;
+  }
 
   rclcpp::executors::MultiThreadedExecutor exec(rclcpp::ExecutorOptions(), 4);
   exec.add_node(node);

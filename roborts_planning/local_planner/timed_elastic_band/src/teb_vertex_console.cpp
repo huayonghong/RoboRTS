@@ -481,8 +481,8 @@ bool TebVertexConsole::DetectDetoursBackwards(double threshold) const {
   return false;
 }
 
-void TebVertexConsole::UpdateAndPruneTEB(boost::optional<const DataBase &> new_start,
-                                         boost::optional<const DataBase &> new_goal,
+void TebVertexConsole::UpdateAndPruneTEB(std::optional<DataBase> new_start,
+                                         std::optional<DataBase> new_goal,
                                          int min_samples){
 
   if (new_start && SizePoses() > 0) {

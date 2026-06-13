@@ -18,16 +18,12 @@ target_include_directories(constraint_set PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/../..
   ${CMAKE_CURRENT_SOURCE_DIR}/../../util)
 
+ament_target_dependencies(constraint_set
+  rclcpp roborts_common ament_index_cpp cv_bridge image_transport sensor_msgs)
+
 target_link_libraries(constraint_set
-  PUBLIC
   detection::tool
-  PRIVATE
-  ${PROTOBUF_LIBRARIES})
-
-ament_target_dependencies(constraint_set PUBLIC
-  rclcpp roborts_common ament_index_cpp)
-
-find_package(OpenCV REQUIRED)
-target_link_libraries(constraint_set PRIVATE ${OpenCV_LIBS})
+  ${PROTOBUF_LIBRARIES}
+  ${OpenCV_LIBS})
 
 install(TARGETS constraint_set DESTINATION lib/${PROJECT_NAME})

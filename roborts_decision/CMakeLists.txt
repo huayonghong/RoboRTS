@@ -22,6 +22,7 @@ find_package(roborts_common REQUIRED)
 find_package(roborts_msgs REQUIRED)
 find_package(roborts_costmap REQUIRED)
 find_package(ament_index_cpp REQUIRED)
+find_package(tf2_eigen REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(ProtoBuf REQUIRED)
 
@@ -39,14 +40,14 @@ add_executable(behavior_test_node
 target_include_directories(behavior_test_node PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(behavior_test_node PRIVATE
-  ${PROTOBUF_LIBRARIES}
-  Eigen3::Eigen)
-
 ament_target_dependencies(behavior_test_node
   rclcpp rclcpp_action tf2 tf2_ros tf2_geometry_msgs
   nav_msgs geometry_msgs action_msgs
   roborts_common roborts_msgs roborts_costmap ament_index_cpp)
+
+target_link_libraries(behavior_test_node
+  ${PROTOBUF_LIBRARIES}
+  Eigen3::Eigen)
 
 install(TARGETS behavior_test_node DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})

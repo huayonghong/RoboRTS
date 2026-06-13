@@ -1,5 +1,5 @@
 Panels:
-  - Class: rviz/Displays
+  - Class: rviz_common/Displays
     Help Height: 78
     Name: Displays
     Property Tree Widget:
@@ -8,22 +8,22 @@ Panels:
         - /Status1
       Splitter Ratio: 0.5
     Tree Height: 844
-  - Class: rviz/Selection
+  - Class: rviz_common/Selection
     Name: Selection
-  - Class: rviz/Tool Properties
+  - Class: rviz_common/Tool Properties
     Expanded:
       - /2D Pose Estimate1
       - /2D Nav Goal1
       - /Publish Point1
     Name: Tool Properties
     Splitter Ratio: 0.588679016
-  - Class: rviz/Views
+  - Class: rviz_common/Views
     Expanded:
       - /Current View1
       - /Current View1/Focal Point1
     Name: Views
     Splitter Ratio: 0.5
-  - Class: rviz/Time
+  - Class: rviz_common/Time
     Experimental: false
     Name: Time
     SyncMode: 0
@@ -31,7 +31,7 @@ Panels:
 Visualization Manager:
   Class: ""
   Displays:
-    - Class: rviz/TF
+    - Class: rviz_default_plugins/TF
       Enabled: true
       Frame Timeout: 15
       Frames:
@@ -61,13 +61,17 @@ Visualization Manager:
       Update Interval: 0
       Value: true
     - Alpha: 0.699999988
-      Class: rviz/Map
+      Class: rviz_default_plugins/Map
       Color Scheme: map
       Draw Behind: false
       Enabled: true
       Name: Map
-      Topic: /map
-      Unreliable: false
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map
       Use Timestamp: false
       Value: true
     - Alpha: 1
@@ -78,7 +82,7 @@ Visualization Manager:
         Value: true
       Axis: Z
       Channel Name: intensity
-      Class: rviz/LaserScan
+      Class: rviz_default_plugins/LaserScan
       Color: 255; 255; 0
       Color Transformer: FlatColor
       Decay Time: 0
@@ -90,18 +94,20 @@ Visualization Manager:
       Min Intensity: 1
       Name: LaserScan
       Position Transformer: XYZ
-      Queue Size: 10
       Selectable: true
       Size (Pixels): 3
       Size (m): 0.100000001
       Style: Flat Squares
-      Topic: /base_scan
-      Unreliable: false
+      Topic:
+        Depth: 10
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /base_scan
       Use Fixed Frame: true
-      Use rainbow: true
       Value: true
     - Angle Tolerance: 0.100000001
-      Class: rviz/Odometry
+      Class: rviz_default_plugins/Odometry
       Covariance:
         Orientation:
           Alpha: 0.5
@@ -131,34 +137,37 @@ Visualization Manager:
         Shaft Length: 1
         Shaft Radius: 0.0500000007
         Value: Axes
-      Topic: /odom
-      Unreliable: false
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /odom
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Default Light: true
     Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
-    - Class: rviz/Interact
+    - Class: rviz_default_plugins/Interact
       Hide Inactive Objects: true
-    - Class: rviz/MoveCamera
-    - Class: rviz/Select
-    - Class: rviz/FocusCamera
-    - Class: rviz/Measure
-    - Class: rviz/SetInitialPose
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+    - Class: rviz_default_plugins/SetInitialPose
       Topic: /initialpose
-    - Class: rviz/SetGoal
-      Topic: /move_base_simple/goal
-    - Class: rviz/PublishPoint
+    - Class: rviz_default_plugins/SetGoal
+      Topic: /goal_pose
+    - Class: rviz_default_plugins/PublishPoint
       Single click: true
       Topic: /clicked_point
   Value: true
   Views:
     Current:
-      Class: rviz/ThirdPersonFollower
+      Class: rviz_default_plugins/ThirdPersonFollower
       Distance: 18.5378971
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
@@ -176,10 +185,10 @@ Visualization Manager:
       Near Clip Distance: 0.00999999978
       Pitch: 1.56979632
       Target Frame: odom
-      Value: ThirdPersonFollower (rviz)
+      Value: ThirdPersonFollower (rviz_default_plugins)
       Yaw: 4.72214699
     Saved:
-      - Class: rviz/ThirdPersonFollower
+      - Class: rviz_default_plugins/ThirdPersonFollower
         Distance: 37.8721542
         Enable Stereo Rendering:
           Stereo Eye Separation: 0.0599999987
@@ -197,7 +206,7 @@ Visualization Manager:
         Near Clip Distance: 0.00999999978
         Pitch: 1.56979632
         Target Frame: odom
-        Value: ThirdPersonFollower (rviz)
+        Value: ThirdPersonFollower (rviz_default_plugins)
         Yaw: 4.71213627
 Window Geometry:
   Displays:
@@ -205,7 +214,6 @@ Window Geometry:
   Height: 1056
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000016a000003dafc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006100fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000002540000011a00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730100000028000003da000000d600fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f000003dafc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730100000028000003da000000ac00fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004fc0000003efc0100000002fb0000000800540069006d00650000000000000004fc0000030000fffffffb0000000800540069006d00650100000000000004500000000000000000000004fb000003da00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:

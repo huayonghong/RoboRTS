@@ -47,7 +47,7 @@ CostmapInterface::CostmapInterface(std::string map_name,
 
   std::string tf_err;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-  while (rclcpp::ok(node_->get_context()) &&
+  while (rclcpp::ok() &&
          std::chrono::steady_clock::now() < deadline) {
     if (tf_.canTransform(global_frame_, robot_base_frame_, tf2::TimePointZero,
                          tf2::durationFromSec(0.05), &tf_err)) {
@@ -204,12 +204,9 @@ void CostmapInterface::MapUpdateLoop(double frequency) {
     RCLCPP_ERROR(node_->get_logger(), "Frequency must be positive in MapUpdateLoop.");
     return;
   }
-  const auto period_ns =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(
-          std::chrono::duration<double>(1.0 / frequency));
-  rclcpp::WallRate loop_rate(std::chrono::duration<double>{1.0 / frequency});
+  rclcpp::WallRate loop_rate(frequency);
 
-  while (rclcpp::ok(node_->get_context()) && !map_update_thread_shutdown_) {
+  while (rclcpp::ok() && !map_update_thread_shutdown_) {
     UpdateMap();
     loop_rate.sleep();
 
@@ -246,7 +243,6 @@ void CostmapInterface::MapUpdateLoop(double frequency) {
       grid_.data[i] = cost_translation_table_[data[i]];
     }
     costmap_pub_->publish(grid_);
-    (void)period_ns;
   }
 }
 
@@ -272,8 +268,8 @@ void CostmapInterface::Start() {
     stopped_ = false;
   }
   stop_updates_ = false;
-  rclcpp::WallRate r(std::chrono::duration<double>{0.01});
-  while (rclcpp::ok(node_->get_context()) && !initialized_) {
+  rclcpp::WallRate r(100.0);
+  while (rclcpp::ok() && !initialized_) {
     r.sleep();
   }
 }
@@ -295,10 +291,10 @@ void CostmapInterface::Pause() {
 
 void CostmapInterface::Resume() {
   stop_updates_ = false;
-  rclcpp::WallRate r(std::chrono::duration<double>{0.01});
+  rclcpp::WallRate r(100.0);
   while (!initialized_) {
     r.sleep();
-    if (!rclcpp::ok(node_->get_context())) {
+    if (!rclcpp::ok()) {
       break;
     }
   }

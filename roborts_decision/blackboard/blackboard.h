@@ -49,7 +49,7 @@ class Blackboard {
 
   bool IsEnemyDetected() const;
 
-  void GoalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr &goal);
+  void GoalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr goal);
 
   geometry_msgs::msg::PoseStamped GetGoal() const { return goal_; }
 

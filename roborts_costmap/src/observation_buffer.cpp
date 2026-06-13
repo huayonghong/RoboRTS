@@ -75,7 +75,7 @@ bool ObservationBuffer::SetGlobalFrame(const std::string new_global_frame)
   try {
     tf_global_old_to_new =
         tf_.lookupTransform(new_global_frame, global_frame_,
-                            tf2_ros::fromRcl(transform_time), tf2::durationFromSec(tf_tolerance_));
+                            tf2::TimePoint(std::chrono::nanoseconds(transform_time.nanoseconds())), tf2::durationFromSec(tf_tolerance_));
   } catch (const tf2::TransformException &ex) {
     RCLCPP_ERROR(rclcpp::get_logger("costmap"),
                  "Transform between %s and %s failed: %s",
@@ -157,11 +157,11 @@ void ObservationBuffer::BufferCloud(const pcl::PointCloud<pcl::PointXYZ> &cloud_
     ros_cloud.header.stamp = pclStampToBuiltin(cloud_in.header.stamp);
 
     geometry_msgs::msg::TransformStamped transform =
-        tf_.lookupTransform(global_frame_, origin_frame, tf2_ros::fromRcl(cloud_time),
+        tf_.lookupTransform(global_frame_, origin_frame, tf2::TimePoint(std::chrono::nanoseconds(cloud_time.nanoseconds())),
                             tf2::durationFromSec(0.5));
 
     sensor_msgs::msg::PointCloud2 ros_cloud_tf;
-    tf2_sensor_msgs::doTransform(ros_cloud, ros_cloud_tf, transform);
+    tf2::doTransform(ros_cloud, ros_cloud_tf, transform);
 
     pcl::PointCloud<pcl::PointXYZ> global_frame_cloud;
     pcl::fromROSMsg(ros_cloud_tf, global_frame_cloud);

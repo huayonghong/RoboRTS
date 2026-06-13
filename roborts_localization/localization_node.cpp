@@ -24,6 +24,7 @@
 
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2/utils.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -114,7 +115,8 @@ bool LocalizationNode::Init() {
 
   laser_scan_sub_ = std::make_shared<
       message_filters::Subscriber<sensor_msgs::msg::LaserScan>>(
-      node_, laser_topic_, rclcpp::QoS(static_cast<size_t>(100)));
+      node_, laser_topic_,
+      rclcpp::QoS(static_cast<size_t>(100)).get_rmw_qos_profile());
 
   laser_scan_filter_ =
       std::make_unique<tf2_ros::MessageFilter<sensor_msgs::msg::LaserScan>>(
@@ -656,7 +658,11 @@ bool LocalizationNode::PublishTf() {
 
 
 
-    stamped_in.pose = tf2::toMsg(hyp_tf.inverse());
+    const tf2::Transform inv_tf = hyp_tf.inverse();
+    stamped_in.pose.position.x = inv_tf.getOrigin().x();
+    stamped_in.pose.position.y = inv_tf.getOrigin().y();
+    stamped_in.pose.position.z = inv_tf.getOrigin().z();
+    stamped_in.pose.orientation = tf2::toMsg(inv_tf.getRotation());
 
 
 

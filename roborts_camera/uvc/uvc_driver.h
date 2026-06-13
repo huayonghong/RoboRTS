@@ -62,7 +62,5 @@ class UVCDriver: public CameraBase {
   bool read_camera_initialized_;
 };
 
-roborts_common::REGISTER_ALGORITHM(CameraBase, "uvc", UVCDriver, CameraInfo);
-
 } //namespace roborts_camera
 #endif //ROBORTS_CAMERA_UVC_DRIVER_H

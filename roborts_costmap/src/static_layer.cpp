@@ -86,7 +86,7 @@ void StaticLayer::OnInitialize() {
       std::bind(&StaticLayer::InComingMap, this, std::placeholders::_1));
 
   rclcpp::WallRate temp_rate(10.0);
-  while (!map_received_ && rclcpp::ok(node_->get_context())) {
+  while (!map_received_ && rclcpp::ok()) {
     rclcpp::spin_some(node_);
     temp_rate.sleep();
   }

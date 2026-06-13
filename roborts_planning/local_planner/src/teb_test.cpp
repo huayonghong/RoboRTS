@@ -35,7 +35,7 @@ LocalVisualizationPtr visual;
 ViaPointContainer via_points;
 unsigned int no_fixed_obstacles = 0;
 
-void CB_obstacle_marker(const visualization_msgs::msg::InteractiveMarkerFeedback::SharedPtr &feedback);
+void CB_obstacle_marker(const std::shared_ptr<const visualization_msgs::msg::InteractiveMarkerFeedback> feedback);
 
 void CreateInteractiveMarker(
     const double &init_x, const double &init_y, unsigned int id, std::string frame,
@@ -92,7 +92,7 @@ class TebTestNode : public rclcpp::Node {
     roborts_common::ReadProtoFromTextFile(full_path.c_str(), &param_config_);
 
     marker_server_ = std::make_unique<interactive_markers::InteractiveMarkerServer>(
-        shared_from_this(), "marker_obstacles");
+        "marker_obstacles", shared_from_this());
 
     obst_vector.emplace_back(boost::make_shared<PointObstacle>(-3, 1));
     obst_vector.emplace_back(boost::make_shared<PointObstacle>(6, 2));
@@ -113,7 +113,7 @@ class TebTestNode : public rclcpp::Node {
       if (pobst) {
         CreateInteractiveMarker(pobst->Position().coeff(0), pobst->Position().coeff(1), i,
                                 "odom", now(), marker_server_.get(),
-                                std::bind(CB_obstacle_marker, std::placeholders::_1));
+                                &CB_obstacle_marker);
       }
     }
     marker_server_->applyChanges();
@@ -147,7 +147,7 @@ class TebTestNode : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr publish_timer_;
 };
 
-void CB_obstacle_marker(const visualization_msgs::msg::InteractiveMarkerFeedback::SharedPtr &feedback) {
+void CB_obstacle_marker(const std::shared_ptr<const visualization_msgs::msg::InteractiveMarkerFeedback> feedback) {
   std::stringstream ss(feedback->marker_name);
   unsigned int index = 0;
   ss >> index;

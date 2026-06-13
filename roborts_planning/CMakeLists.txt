@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(roborts_planning)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake_module)
 set(CMAKE_BUILD_TYPE Release)
 
@@ -21,8 +21,9 @@ find_package(roborts_common REQUIRED)
 find_package(roborts_msgs REQUIRED)
 find_package(roborts_costmap REQUIRED)
 find_package(ament_index_cpp REQUIRED)
+find_package(tf2_eigen REQUIRED)
 
-find_package(G2O REQUIRED)
+find_package(g2o REQUIRED CONFIG)
 find_package(SUITESPARSE REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)

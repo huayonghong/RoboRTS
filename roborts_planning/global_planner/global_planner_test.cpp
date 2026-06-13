@@ -34,13 +34,15 @@ using GoalHandleGlobalPlanner =
 class GlobalPlannerTest : public rclcpp::Node {
  public:
   explicit GlobalPlannerTest()
-      : Node("global_planner_test"),
-        goal_sub_(create_subscription<geometry_msgs::msg::PoseStamped>(
-            "/move_base_simple/goal", 10,
-            std::bind(&GlobalPlannerTest::GoalCallback, this,
-                      std::placeholders::_1))),
-        client_(rclcpp_action::create_client<GlobalPlanner>(
-            *this, "/global_planner_node_action")) {
+      : Node("global_planner_test") {
+    goal_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/move_base_simple/goal", 10,
+        std::bind(&GlobalPlannerTest::GoalCallback, this,
+                  std::placeholders::_1));
+    client_ = rclcpp_action::create_client<GlobalPlanner>(
+        get_node_base_interface(), get_node_graph_interface(),
+        get_node_logging_interface(), get_node_waitables_interface(),
+        "/global_planner_node_action");
     timer_ =
         create_wall_timer(std::chrono::milliseconds(100),
                          std::bind(&GlobalPlannerTest::TryConnectTimer, this));

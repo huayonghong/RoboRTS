@@ -58,8 +58,7 @@
 
 #include <iostream>
 
-#include <geometry_msgs/Pose.h>
-#include <tf/transform_datatypes.h>
+#include <geometry_msgs/msg/pose.hpp>
 #include <Eigen/Core>
 #include <g2o/stuff/misc.h>
 

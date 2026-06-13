@@ -31,7 +31,9 @@ Blackboard::Blackboard(rclcpp::Node::SharedPtr node, const std::string &proto_fi
 
   enemy_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
       "/move_base_simple/goal", rclcpp::QoS(1),
-      std::bind(&Blackboard::GoalCallback, this, std::placeholders::_1));
+      [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+        GoalCallback(msg);
+      });
 
   DecisionConfig decision_config;
   roborts_common::ReadProtoFromTextFile(proto_file_path.c_str(), &decision_config);
@@ -39,7 +41,7 @@ Blackboard::Blackboard(rclcpp::Node::SharedPtr node, const std::string &proto_fi
 
   if (!simulate_) {
     armor_detection_client_ =
-        rclcpp_action::create_client<roborts_msgs::action::ArmorDetection>(*node_,
+        rclcpp_action::create_client<roborts_msgs::action::ArmorDetection>(node_,
                                                                            "armor_detection_node_action");
 
     while (!armor_detection_client_->wait_for_action_server(std::chrono::seconds(2))) {
@@ -97,7 +99,7 @@ bool Blackboard::IsEnemyDetected() const {
   return enemy_detected_;
 }
 
-void Blackboard::GoalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr &goal) {
+void Blackboard::GoalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr goal) {
   new_goal_ = true;
   goal_ = *goal;
 }

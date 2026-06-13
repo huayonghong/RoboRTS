@@ -37,6 +37,7 @@
 
 #include "alg_factory/algorithm_factory.h"
 #include "state/error_code.h"
+#include "state/node_state.h"
 #include "costmap/costmap_interface.h"
 #include "global_planner_base.h"
 #include "proto/global_planner_config.pb.h"
@@ -54,6 +55,8 @@ class GlobalPlannerNode : public rclcpp::Node {
 
   GlobalPlannerNode();
   ~GlobalPlannerNode();
+
+  bool InitializeNode();
 
  private:
   roborts_common::ErrorInfo Init();

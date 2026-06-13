@@ -29,7 +29,7 @@ CameraNode::CameraNode(rclcpp::Node::SharedPtr node) : node_(node) {
   for (unsigned int i = 0; i < camera_num_; i++) {
     auto camera_info = camera_param_.GetCameraParam()[i];
     image_transport::ImageTransport it(node_);
-    img_pubs_[i] = it.advertiseCamera(camera_info.camera_name + "/image_raw", rclcpp::QoS(1));
+    img_pubs_[i] = it.advertiseCamera(camera_info.camera_name + "/image_raw", 1);
     camera_driver_[i] = roborts_common::AlgorithmFactory<CameraBase,CameraInfo>::CreateAlgorithm(camera_info.camera_type,camera_info);
   }
   StartThread();

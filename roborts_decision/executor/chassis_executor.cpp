@@ -28,9 +28,9 @@ ChassisExecutor::ChassisExecutor(rclcpp::Node::SharedPtr node)
       execution_mode_(ExcutionMode::IDLE_MODE),
       execution_state_(BehaviorState::IDLE) {
   global_planner_client_ =
-      rclcpp_action::create_client<GlobalPlannerAction>(*node_, "/global_planner_node_action");
+      rclcpp_action::create_client<GlobalPlannerAction>(node_, "/global_planner_node_action");
   local_planner_client_ =
-      rclcpp_action::create_client<LocalPlannerAction>(*node_, "/local_planner_node_action");
+      rclcpp_action::create_client<LocalPlannerAction>(node_, "/local_planner_node_action");
 
   cmd_vel_pub_ =
       node_->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", rclcpp::QoS(1));

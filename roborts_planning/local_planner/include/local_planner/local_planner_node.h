@@ -46,7 +46,7 @@ class LocalPlannerNode : public rclcpp::Node {
 
   ~LocalPlannerNode();
 
-  roborts_common::ErrorInfo Init();
+  bool InitializeNode();
 
   void Loop();
 
@@ -65,6 +65,8 @@ class LocalPlannerNode : public rclcpp::Node {
   roborts_common::ErrorInfo GetErrorInfo();
 
  private:
+  roborts_common::ErrorInfo Init();
+
   rclcpp_action::GoalResponse HandleGoal(
       const rclcpp_action::GoalUUID &uuid,
       std::shared_ptr<const LocalPlannerAction::Goal> goal);
