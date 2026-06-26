@@ -1,0 +1,53 @@
+# RTAB-Map parameters for RoboRTS
+# Tuned for indoor competition environment with monocular camera
+#
+# Adjust these based on your camera resolution and environment.
+# For detailed parameter descriptions, see:
+# https://github.com/introlab/rtabmap/wiki/RTAB-Map-Parameters
+
+rtabmap:
+  ros__parameters:
+    # General
+    frame_id: base_link
+    odom_frame_id: odom
+    map_frame_id: map
+    subscribe_depth: false
+    subscribe_rgb: true
+    subscribe_odom: true
+    approx_sync: true
+    queue_size: 10
+
+    # Detection and loop closure
+    Rtabmap/DetectionRate: "2.0"
+    Rtabmap/TimeThr: "0.0"
+
+    # Feature detection (GFTT: Good Features To Track)
+    GFTT/MinDistance: "5.0"
+    GFTT/QualityLevel: "0.01"
+
+    # Memory management
+    Mem/STMSize: "30"
+    Mem/RehearsalSimilarity: "0.6"
+
+    # Keypoint extraction
+    Kp/MaxFeatures: "400"
+    Kp/DetectorStrategy: "6"  # GFTT/BRIEF
+
+    # Visual features matching
+    Vis/MinInliers: "15"
+    Vis/InlierDistance: "0.1"
+    Vis/FeatureType: "6"     # GFTT/BRIEF
+    Vis/MaxFeatures: "400"
+
+    # Odometry parameters (if using RTAB-Map's visual odom)
+    Odom/Strategy: "0"       # Frame-to-Map
+    Odom/GuessMotion: "true"
+    OdomF2M/MaxSize: "1000"
+    OdomF2M/MaxNewFeatures: "150"
+
+    # Occupancy grid (2D map output) — for RGB-D mapping see rtabmap_mapping_params.yaml
+    Grid/Sensor: "1"
+    Grid/FromDepth: "true"
+    Grid/CellSize: "0.05"
+    Grid/RangeMax: "5.0"
+    RGBD/CreateOccupancyGrid: "true"

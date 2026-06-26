@@ -1,0 +1,53 @@
+# RTAB-Map mapping parameters for RealSense D455 RGB-D on RoboRTS
+# Loaded by vslam_mapping.launch.py (node name must be "rtabmap")
+#
+# Query params on Jetson:
+#   ros2 param list /rtabmap | grep Grid
+#   ros2 param get /rtabmap "Grid/Sensor"
+#
+# Parameter docs: https://github.com/introlab/rtabmap/wiki/RTAB-Map-Parameters
+
+rtabmap:
+  ros__parameters:
+    subscribe_depth: true
+    subscribe_rgb: true
+    subscribe_odom: true
+    frame_id: base_link
+    odom_frame_id: vo
+    map_frame_id: map
+    approx_sync: true
+    sync_queue_size: 10
+    wait_for_transform: 0.5
+    qos_image: 1
+    qos_camera_info: 1
+    qos_odom: 1
+
+    # Keep publishing /map even when the robot is stationary
+    map_always_update: true
+
+    # SLAM graph update thresholds (meters / radians)
+    RGBD/CreateOccupancyGrid: "true"
+    RGBD/LinearUpdate: "0.05"
+    RGBD/AngularUpdate: "0.05"
+    RGBD/ProximityBySpace: "true"
+
+    Rtabmap/DetectionRate: "1.0"
+    Mem/STMSize: "30"
+    Kp/MaxFeatures: "200"
+    Vis/MinInliers: "10"
+    Vis/InlierDistance: "0.1"
+    Reg/Strategy: "0"
+    Reg/Force3DoF: "true"
+
+    # Occupancy grid from depth (Grid/Sensor replaces legacy Grid/FromDepth)
+    Grid/Sensor: "1"
+    Grid/FromDepth: "true"
+    Grid/CellSize: "0.05"
+    Grid/RangeMax: "4.0"
+    Grid/RangeMin: "0.3"
+    Grid/MaxGroundHeight: "0.10"
+    Grid/MaxObstacleHeight: "1.5"
+    Grid/NormalsSegmentation: "false"
+    Grid/NoiseFilteringRadius: "0.0"
+    Grid/NoiseFilteringMinNeighbors: "0"
+    GridGlobal/MinSize: "20.0"

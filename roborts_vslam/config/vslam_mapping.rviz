@@ -1,0 +1,229 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Value: true
+      Cell Size: 1
+      Line Style:
+        Line Width: 0.03
+        Value: Lines
+      Plane: XY
+      Plane Cell Count: 20
+      Reference Frame: <Fixed Frame>
+
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Value: true
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+
+    - Class: rviz_default_plugins/RobotModel
+      Name: RobotModel
+      Value: false
+
+    - Class: rviz_default_plugins/Map
+      Name: 2D Grid Map
+      Value: true
+      Topic:
+        Value: /map
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: RELIABLE
+        Durability Policy: TRANSIENT_LOCAL
+      Alpha: 0.7
+      Draw Behind: true
+      Color Scheme: map
+
+    # /rtabmap/grid_map not published by this RTAB-Map version; /map is used instead.
+
+    # Local depth map from rgbd_odometry — updates immediately while moving.
+    # Use this to verify depth + TF are working before global /map fills in.
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Local Depth Map
+      Value: false
+      Topic:
+        Value: /odom_local_map
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+      Size (m): 0.02
+      Style: Points
+      Color Transformer: RGB8
+      Decay Time: 0
+
+    - Class: rviz_default_plugins/PointCloud2
+      Name: 3D Point Cloud Map
+      Value: false
+      Topic:
+        Value: /cloud_map
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: RELIABLE
+      Size (m): 0.03
+      Style: Points
+      Color Transformer: RGB8
+      Decay Time: 0
+
+    # NOTE: Topic prefix must match the camera_ns launch argument.
+    #   /camera/camera/... for realsense2_camera 4.51-4.53
+    #   /camera/...        for realsense2_camera 4.54+ or 3.x
+    # If images don't appear, verify with: ros2 topic list | grep color
+    #
+    # Image display is disabled by default on Jetson (NVIDIA EGL incompatibility).
+    # Use rqt_image_view instead. Enable manually in RViz2 if on x86.
+    - Class: rviz_default_plugins/Image
+      Name: Color Image
+      Value: false
+      Max Value: 1
+      Min Value: 0
+      Normalize Range: false
+      Transport Hint: raw
+      Topic:
+        Value: /camera/camera/color/image_raw
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+
+    - Class: rviz_default_plugins/Image
+      Name: Depth Image
+      Value: false
+      Max Value: 1
+      Min Value: 0
+      Normalize Range: true
+      Transport Hint: raw
+      Topic:
+        Value: /camera/camera/aligned_depth_to_color/image_raw
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+
+    # Camera display as alternative to Image display.
+    # Uses camera_info for projection — may have better Jetson compatibility.
+    # Enable this if Image display doesn't work.
+    - Class: rviz_default_plugins/Camera
+      Name: Camera View
+      Value: false
+      Image Rendering: background
+      Transport Hint: raw
+      Topic:
+        Value: /camera/camera/color/image_raw
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+      Camera Info Topic:
+        Value: /camera/camera/color/camera_info
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Map Graph
+      Value: true
+      Topic:
+        Value: /mapGraph
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Obstacles
+      Value: false
+      Topic:
+        Value: /cloud_obstacles
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+      Size (m): 0.02
+      Style: Points
+      Color Transformer: FlatColor
+      Color: 255; 0; 0
+      Decay Time: 0
+
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Ground
+      Value: false
+      Topic:
+        Value: /cloud_ground
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+      Size (m): 0.02
+      Style: Points
+      Color Transformer: FlatColor
+      Color: 0; 200; 0
+      Decay Time: 0
+
+    - Class: rviz_default_plugins/Odometry
+      Name: Visual Odometry
+      Value: true
+      Topic:
+        Value: /rgbd_odometry/odom
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+      Keep: 100
+      Shape:
+        Arrow:
+          Color: 0; 255; 0
+          Shaft Length: 0.05
+          Head Length: 0.03
+
+    - Class: rviz_default_plugins/Odometry
+      Name: Wheel Odometry
+      Value: true
+      Topic:
+        Value: /odom
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+      Keep: 100
+      Shape:
+        Arrow:
+          Color: 255; 255; 0
+          Shaft Length: 0.05
+          Head Length: 0.03
+
+    - Class: rviz_default_plugins/Path
+      Name: RTABMAP Path
+      Value: true
+      Topic:
+        Value: /mapPath
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+      Color: 25; 255; 0
+      Line Style:
+        Line Width: 0.03
+
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Value: ""
+  Views:
+    Current:
+      Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 8
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05
+      Invert Z Axis: false
+      Name: Current View
+      Pitch: 0.7854
+      Target Frame: base_link
+      Yaw: 0
+    Saved: ~
