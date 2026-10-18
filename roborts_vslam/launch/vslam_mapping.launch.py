@@ -63,14 +63,19 @@ def generate_launch_description():
             'rgb_camera.color_profile': '640x480x30',
             'depth_module.depth_profile': '640x480x30',
             'align_depth.enable': True,
-            'clip_distance': 4.0,
+            # 0.0 disables clipping. A non-zero clip_distance zeroes out all
+            # depth pixels beyond that range, which starves RGB-D odometry.
+            'clip_distance': 0.0,
             # Disable realsense internal TF publishing — we publish the required
             # camera_link → camera_*_optical_frame transforms in static_tf.launch.py
             # to guarantee they exist before rgbd_odometry starts looking them up.
             # This avoids version-dependent issues (4.51-4.53: rate=0 disables TF;
             # 4.54+: rate=0 uses StaticTransformBroadcaster but may race with startup).
             'publish_tf': False,
-            'initial_reset': True,
+            # initial_reset=true triggers a firmware reset that on this
+            # Jetson/D455 combo raises "Depth stream start failure" and leaves
+            # the depth stream almost entirely invalid (only ~4% valid pixels).
+            'initial_reset': False,
             'enable_sync': True,
         }],
     )
@@ -104,6 +109,10 @@ def generate_launch_description():
             'odom_frame_id': 'vo',
             'publish_tf': True,
             'approx_sync': True,
+            # Reject RGB/depth pairs that are more than one frame apart.
+            # Without this, aligned depth and color can be paired 33 ms apart,
+            # which is enough to destroy 3D feature correspondence.
+            'approx_sync_max_interval': 0.02,
             'sync_queue_size': 10,
             'wait_for_transform': 0.5,
             'qos_image': 1,
@@ -113,7 +122,7 @@ def generate_launch_description():
             'Odom/GuessMotion': 'true',
             'Vis/CorType': '0',
             'OdomF2M/MaxSize': '1000',
-            'OdomF2M/MaxNewFeatures': '150',
+            'OdomF2M/MaxNewFeatures': '500',
             'Reg/Force3DoF': 'true',
         }],
         remappings=[

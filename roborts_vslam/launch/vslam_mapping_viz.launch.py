@@ -55,6 +55,11 @@ def generate_launch_description():
         executable='rviz2',
         name='rviz2',
         output='screen',
+        # On Jetson (NVIDIA EGL), RViz2's Ogre render window defaults to a
+        # blank white panel. Copying the render target fixes it without
+        # falling back to slow software GL. If it is still blank, run with
+        # LIBGL_ALWAYS_SOFTWARE=1 instead.
+        additional_env={'OGRE_RTT_MODE': 'Copy'},
         arguments=['-d', os.path.join(vslam_dir, 'config', 'vslam_mapping.rviz')],
     )
 
