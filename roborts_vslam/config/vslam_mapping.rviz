@@ -213,7 +213,10 @@ Visualization Manager:
         Value: /camera/camera/aligned_depth_to_color/image_raw
       Value: true
     - Class: rviz_default_plugins/Camera
-      Enabled: true
+      # Disabled: it subscribes to the same color image as the 2D "Color Image"
+      # display and re-renders the whole 3D scene, which is the heaviest RViz
+      # display on this Jetson. Enable it manually if you need the overlay view.
+      Enabled: false
       Far Plane Distance: 100
       Image Rendering: background
       Name: Camera View
@@ -224,7 +227,7 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Best Effort
         Value: /camera/camera/color/image_raw
-      Value: true
+      Value: false
       Visibility:
         2D Grid Map: true
         3D Point Cloud Map: true

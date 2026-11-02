@@ -33,8 +33,11 @@ def generate_launch_description():
         description='RealSense topic prefix (see vslam_mapping.launch.py)')
     camera_ns = LaunchConfiguration('camera_ns')
 
+    # RViz already renders the color/depth images. Launching rqt_image_view on
+    # top of that means four more 640x480@30Hz subscribers, which on the Orin
+    # Nano leaves RViz dropping messages. Off by default; enable when needed.
     show_rqt_arg = DeclareLaunchArgument(
-        'show_rqt', default_value='true',
+        'show_rqt', default_value='false',
         description='Also launch rqt_image_view windows for color/depth')
 
     static_tf_launch = IncludeLaunchDescription(

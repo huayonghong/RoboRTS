@@ -120,9 +120,18 @@ def generate_launch_description():
             'use_sim_time': LaunchConfiguration('use_sim_time'),
             'Odom/Strategy': '0',
             'Odom/GuessMotion': 'true',
+            # Without this, frame-to-map odometry stays permanently lost after
+            # a bad frame (it never re-acquires). Reset after ~15 failed frames
+            # (~2 s at 7 Hz) so tracking can recover.
+            'Odom/ResetCountdown': '15',
             'Vis/CorType': '0',
-            'OdomF2M/MaxSize': '1000',
-            'OdomF2M/MaxNewFeatures': '500',
+            # More features and a larger frame-to-map window keep tracking
+            # alive on low-texture indoor scenes. The Orin Nano processes a
+            # frame in ~90 ms (~10 Hz), so quality drops quickly when moving
+            # fast; these values give the tracker more to work with.
+            'OdomF2M/MaxSize': '2000',
+            'OdomF2M/MaxNewFeatures': '1000',
+            'Vis/MinInliers': '10',
             'Reg/Force3DoF': 'true',
         }],
         remappings=[
