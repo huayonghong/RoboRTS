@@ -131,7 +131,12 @@ def generate_launch_description():
             # fast; these values give the tracker more to work with.
             'OdomF2M/MaxSize': '2000',
             'OdomF2M/MaxNewFeatures': '1000',
-            'Vis/MinInliers': '10',
+            # 10 inliers was too permissive: on a stationary robot a single bad
+            # frame pair took the estimate to -91 deg yaw (recovered only after
+            # ~50 s). 15 still tracks the low-texture corridor but rejects
+            # those garbage matches; Odom/ResetCountdown below handles the
+            # frames that now fail outright.
+            'Vis/MinInliers': '15',
             'Reg/Force3DoF': 'true',
         }],
         remappings=[

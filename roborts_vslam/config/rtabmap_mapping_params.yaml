@@ -24,32 +24,79 @@ rtabmap:
     qos_camera_info: 1
     qos_odom: 1
 
-    # Keep publishing /map even when the robot is stationary
-    map_always_update: true
+    # Recomputing/publishing /map every callback while the robot is idle burns
+    # CPU (map update was ~50 ms/s) without adding information. The last map
+    # stays latched on /map.
+    map_always_update: false
 
-    # SLAM graph update thresholds (meters / radians)
+    # SLAM graph update thresholds (meters / radians).
+    # 0.05 created a node every ~5 cm (252 nodes for a 10 m corridor); every
+    # node contributes its own noisy local grid to the global map, so a denser
+    # graph directly adds speckle. 0.15/0.10 keeps detail without the noise.
     RGBD/CreateOccupancyGrid: "true"
-    RGBD/LinearUpdate: "0.05"
-    RGBD/AngularUpdate: "0.05"
+    RGBD/LinearUpdate: "0.15"
+    RGBD/AngularUpdate: "0.10"
     RGBD/ProximityBySpace: "true"
 
     Rtabmap/DetectionRate: "1.0"
     Mem/STMSize: "30"
     Kp/MaxFeatures: "500"
-    Vis/MinInliers: "10"
-    Vis/InlierDistance: "0.1"
+    # Stricter than the original 10/0.1: the last run accepted too many weak
+    # correspondences (odometry swung to -91 deg yaw while the robot was
+    # standing still). Fewer, better inliers beat more, wrong ones.
+    Vis/MinInliers: "15"
+    Vis/InlierDistance: "0.05"
     Reg/Strategy: "0"
     Reg/Force3DoF: "true"
 
-    # Occupancy grid from depth (Grid/Sensor replaces legacy Grid/FromDepth)
+    # Do not store raw images/depth in the database. The last 10-minute run
+    # produced a 207 MB db for a single stationary spot (57 MB images +
+    # 70 MB depth). Only needed for replaying/retraining; mapping and
+    # localization from a saved map still work without them.
+    Mem/ImageKept: "false"
+    Mem/BinDataKept: "false"
+
+    # ---- Occupancy grid from depth (Grid/Sensor=1; the legacy Grid/FromDepth
+    # key is not recognized by rtabmap 0.22.1, so it was removed)
     Grid/Sensor: "1"
-    Grid/FromDepth: "true"
     Grid/CellSize: "0.05"
-    Grid/RangeMax: "4.0"
-    Grid/RangeMin: "0.3"
-    Grid/MaxGroundHeight: "0.10"
+
+    # D455 stereo depth degrades quickly past ~3 m; longer rays produce the
+    # scattered obstacle speckle and the long streaks seen in the first map.
+    # 3.5 m is the compromise for a ~5 m room: 3.0 left 39% of the free-space
+    # boundary facing unknown (far walls clipped). Noise filtering below
+    # absorbs most of the extra speckle.
+    Grid/RangeMax: "3.5"
+    Grid/RangeMin: "0.25"
+
+    # ---- Ground removal
+    # The old map marked the floor as obstacle along the whole trajectory. The
+    # height-only filter (MaxGroundHeight) is brittle: it depends on base_link
+    # really sitting on the floor and on the camera mount being exactly 0.20 m.
+    # Normals segmentation finds the ground plane from the cloud itself, which
+    # survives a mis-calibrated camera height. Keep the height limits as a
+    # secondary guard, but they must bracket the actual ground (z=0 in map).
+    Grid/NormalsSegmentation: "true"
+    Grid/NormalK: "20"
+    Grid/MaxGroundAngle: "45"
+    Grid/GroundIsObstacle: "false"
+    Grid/FlatObstacleDetected: "true"   # singular: rtabmap 0.22.1 ignores the plural spelling
+    Grid/MaxGroundHeight: "0.15"
+    Grid/MinGroundHeight: "-0.05"
     Grid/MaxObstacleHeight: "1.5"
-    Grid/NormalsSegmentation: "false"
-    Grid/NoiseFilteringRadius: "0.0"
-    Grid/NoiseFilteringMinNeighbors: "0"
-    GridGlobal/MinSize: "20.0"
+
+    # ---- Speckle removal (was disabled: radius 0.0 + min neighbors 0)
+    Grid/NoiseFilteringRadius: "0.05"
+    Grid/NoiseFilteringMinNeighbors: "5"
+    Grid/ClusterRadius: "0.10"
+    Grid/MinClusterSize: "10"
+    Grid/PreVoxelFiltering: "true"
+
+    # Carve free space between the camera and each obstacle, so the corridor
+    # does not stay partially "unknown". Costs CPU; set to "false" if the
+    # Jetson cannot keep up.
+    Grid/RayTracing: "true"
+
+    # 20 m minimum canvas is wasted for a short indoor run (and made a 21x24 m
+    # pgm from a 4.5x10 m trajectory). The grid still grows as needed.
+    GridGlobal/MinSize: "10.0"

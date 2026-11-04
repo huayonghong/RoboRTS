@@ -2,7 +2,7 @@ import os
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
@@ -10,7 +10,13 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory('roborts_bringup')
     localization_dir = get_package_share_directory('roborts_localization')
 
-    map_arg = DeclareLaunchArgument('map', default_value='icra2019')
+    # Selects maps/<map>.yaml. The map_server below now actually uses this
+    # value; it used to be hardcoded to icra2019.yaml, so the argument was
+    # silently ignored.
+    #   ros2 launch roborts_bringup roborts.launch.py map:=vslam_d455
+    map_arg = DeclareLaunchArgument(
+        'map', default_value='icra2019',
+        description='Map name (without extension) under roborts_bringup/maps')
 
     base_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(bringup_dir, 'launch', 'base.launch.py'))
@@ -41,7 +47,8 @@ def generate_launch_description():
         name='map_server',
         output='screen',
         parameters=[{
-            'yaml_filename': os.path.join(bringup_dir, 'maps', 'icra2019.yaml'),
+            'yaml_filename': PathJoinSubstitution([
+                bringup_dir, 'maps', [LaunchConfiguration('map'), '.yaml']]),
             'use_sim_time': False,
         }],
     )

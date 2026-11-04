@@ -1,0 +1,6 @@
+image: vslam_d455.pgm
+resolution: 0.05
+origin: [-5.525000, -11.220155, 0.000000]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
