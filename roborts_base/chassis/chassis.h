@@ -94,6 +94,8 @@ class Chassis {
   //! ros publisher for uwb information
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr ros_uwb_pub_;
 
+  //! whether this node owns the odom -> base_link transform
+  bool publish_tf_ = true;
   //! ros chassis odometry tf
   geometry_msgs::msg::TransformStamped odom_tf_;
   //! ros chassis odometry tf broadcaster

@@ -4,7 +4,11 @@ VSLAM Navigation Launch -- autonomous goal navigation on the scanned 2D map.
 Stack:
   - roborts_base            : odom -> base_link, subscribes /cmd_vel_acc
   - RealSense D455 + RTAB-Map localization (vslam_localization.launch.py)
-                              : map -> odom, relocalizes in ~/.ros/rtabmap_run3.db
+                              : map -> odom, relocalizes in ~/.ros/rtabmap_run3.db.
+                              With use_visual_odom:=true the RGB-D visual
+                              odometry owns odom -> base_link instead (it
+                              matches the recording odometry, but resets
+                              itself when tracking is lost).
   - nav2_map_server         : loads roborts_bringup/maps/<map>.yaml
   - map_relay               : /map_raw -> /map @ 1 Hz (costmap QoS workaround)
   - /scan producer (one of):
@@ -98,6 +102,22 @@ def generate_launch_description():
         'use_nav_rviz', default_value=LaunchConfiguration('use_rviz'),
         description='Open the navigation RViz (defaults to use_rviz).')
 
+    # Off by default.  The RGB-D visual odometry matches the database, but on
+    # this Jetson it loses tracking and resets itself (Odom/ResetCountdown),
+    # which teleports odom -> base_link.  The chassis wheels are the stable
+    # source; enable this only when the visual odometry has been verified.
+    use_visual_odom_arg = DeclareLaunchArgument(
+        'use_visual_odom', default_value='false',
+        description='Use RGB-D visual odometry as the odom source. '
+                    'false (default) uses the chassis /odom.')
+
+    # RViz's 2D Goal Pose publishes a heading as well as a position.  By
+    # default only the position is used, so the robot does not rotate on the
+    # spot to the (often arbitrary) heading the user dragged.
+    respect_goal_orientation_arg = DeclareLaunchArgument(
+        'respect_goal_orientation', default_value='false',
+        description='Finish at the heading carried by the RViz goal pose.')
+
     scan_height_arg = DeclareLaunchArgument(
         'scan_height', default_value='20',
         description='depthimage backend: number of centre rows averaged.')
@@ -138,10 +158,22 @@ def generate_launch_description():
         ["'", sensor_mode, "' == 'depth' and '",
          depth_source, "' == 'pointcloud'"])
 
+    # When visual odometry is the odom source the chassis must not publish
+    # odom -> base_link, and RTAB-Map must consume the visual odometry topic
+    # exactly like it did while the database was recorded.
+    base_publish_tf = PythonExpression(
+        ["'false' if '", LaunchConfiguration('use_visual_odom'),
+         "' == 'true' else 'true'"])
+    rtabmap_odom_topic = PythonExpression(
+        ["'/rgbd_odometry/odom' if '",
+         LaunchConfiguration('use_visual_odom'),
+         "' == 'true' else '/odom'"])
+
     # ------------------------------------------------------------------ base
     base_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(bringup_dir, 'launch', 'base.launch.py')))
+            os.path.join(bringup_dir, 'launch', 'base.launch.py')),
+        launch_arguments=[('publish_tf', base_publish_tf)])
 
     # ---------------------------------------------------------- localization
     # vslam_localization.launch.py already includes static_tf.launch.py; do
@@ -153,10 +185,12 @@ def generate_launch_description():
             ('database_path', LaunchConfiguration('database_path')),
             ('camera_ns', camera_ns),
             ('use_rviz', 'false'),
-            # The chassis owns odom -> base_link and RTAB-Map owns map -> odom.
-            ('vo_publish_tf', 'false'),
+            # Exactly one node owns odom -> base_link: visual odometry by
+            # default (matching how the database was recorded), otherwise the
+            # chassis.  RTAB-Map owns map -> odom either way.
+            ('vo_publish_tf', LaunchConfiguration('use_visual_odom')),
             ('odom_frame', 'odom'),
-            ('odom_topic', '/odom'),
+            ('odom_topic', rtabmap_odom_topic),
             # Only the pointcloud backend needs the realsense pointcloud.
             ('enable_pointcloud', enable_pointcloud),
             # nav2_map_server owns /map; keep RTAB-Map's grid separate.
@@ -334,7 +368,12 @@ def generate_launch_description():
         executable='vslam_goal_bridge.py',
         name='vslam_goal_bridge',
         output='screen',
-        parameters=[{'goal_topic': '/goal_pose'}],
+        parameters=[{
+            'goal_topic': '/goal_pose',
+            'respect_goal_orientation': ParameterValue(
+                LaunchConfiguration('respect_goal_orientation'),
+                value_type=bool),
+        }],
     )
 
     # ------------------------------------------------------------------- viz
@@ -357,6 +396,8 @@ def generate_launch_description():
         map_arg,
         use_rviz_arg,
         use_nav_rviz_arg,
+        use_visual_odom_arg,
+        respect_goal_orientation_arg,
         scan_height_arg,
         scan_range_min_arg,
         scan_range_max_arg,

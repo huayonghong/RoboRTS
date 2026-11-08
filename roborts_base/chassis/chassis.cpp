@@ -72,6 +72,10 @@ void Chassis::SDK_Init(){
   );
 }
 void Chassis::ROS_Init(){
+  // The chassis owns odom -> base_link by default.  Set publish_tf:=false
+  // when another node owns that transform (e.g. visual odometry in the VSLAM
+  // navigation stack), otherwise two publishers fight over it.
+  publish_tf_ = node_->declare_parameter<bool>("publish_tf", true);
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(node_);
   
   ros_odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>("odom", 30);
@@ -114,7 +118,9 @@ void Chassis::ChassisInfoCallback(const std::shared_ptr<roborts_sdk::cmd_chassis
   odom_tf_.transform.translation.y = chassis_info->position_y_mm/1000.;
   odom_tf_.transform.translation.z = 0.0;
   odom_tf_.transform.rotation = odom_.pose.pose.orientation;
-  tf_broadcaster_->sendTransform(odom_tf_);
+  if (publish_tf_) {
+    tf_broadcaster_->sendTransform(odom_tf_);
+  }
 }
 void Chassis::UWBInfoCallback(const std::shared_ptr<roborts_sdk::cmd_uwb_info> uwb_info){
   uwb_data_.header.stamp = node_->now();

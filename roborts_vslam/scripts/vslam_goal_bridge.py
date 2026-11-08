@@ -22,20 +22,26 @@ the VSLAM navigation stack:
   thread busy-waits for the robot pose while holding the costmap mutex
   (global_planner_node.cpp PlanThread), so sending a goal before RTAB-Map has
   relocalized would stall the costmap.
-* The user's requested final orientation is written into the last pose of
-  the path handed to TEB.  A* emits every pose with yaw 0
-  (a_star_planner.cpp), and the global planner uses its own path for the
-  success check, so the global goal is cancelled once TEB reports success.
+* With respect_goal_orientation:=false (default) only the goal position is
+  used: the last pose handed to TEB finishes facing the direction of travel,
+  not the heading RViz attaches to a 2D Goal Pose click.  A heading dragged
+  in RViz was forcing TEB to rotate on the spot (often by ~180 deg) before or
+  after driving.  Set respect_goal_orientation:=true to restore the old
+  behaviour.
+* The global planner uses its own A* path (whose last pose carries the goal
+  orientation) for the success check, so the global goal is cancelled once
+  TEB reports success.
 """
 
 import copy
+import math
 
 import rclpy
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
 from rclpy.action import ActionClient
 from rclpy.node import Node
-from rclpy.time import Time
+from rclpy.time import Duration, Time
 
 import tf2_ros
 
@@ -51,6 +57,13 @@ class GoalBridge(Node):
         self.declare_parameter('base_frame', 'base_link')
         self.declare_parameter('local_retries', 2)
         self.declare_parameter('tf_wait_timeout', 60.0)
+        self.declare_parameter('respect_goal_orientation', False)
+        # Refuse to start until map -> odom has stopped moving: RTAB-Map
+        # refines its initial correction right after relocalization (observed
+        # as a ~45 deg step), and a goal sent during that step makes TEB turn
+        # to chase a target that moved.
+        self.declare_parameter('tf_settle_time', 1.5)
+        self.declare_parameter('tf_settle_tolerance', 0.05)
 
         goal_topic = self.get_parameter('goal_topic').value
         self._map_frame = self.get_parameter('map_frame').value
@@ -58,6 +71,11 @@ class GoalBridge(Node):
         self._max_local_retries = int(self.get_parameter('local_retries').value)
         self._tf_wait_timeout = float(
             self.get_parameter('tf_wait_timeout').value)
+        self._respect_goal_orientation = bool(
+            self.get_parameter('respect_goal_orientation').value)
+        self._settle_time = float(self.get_parameter('tf_settle_time').value)
+        self._settle_tolerance = float(
+            self.get_parameter('tf_settle_tolerance').value)
 
         self._global_client = ActionClient(
             self, GlobalPlanner, '/global_planner_node_action')
@@ -137,26 +155,63 @@ class GoalBridge(Node):
         if gen != self._gen:
             return
 
-        if not self._tf_buffer.can_transform(
-                self._map_frame, self._base_frame, Time()):
+        if not self._ready_to_plan():
             if self._pending_since is None:
                 self._pending_since = self.get_clock().now()
                 self._pending_timer = self.create_timer(
                     0.5, lambda: self._retry_start(gen))
                 self.get_logger().warn(
-                    f'waiting for {self._map_frame}->{self._base_frame} '
-                    f'(RTAB-Map relocalization) before sending the goal')
+                    f'waiting for a stable {self._map_frame}->'
+                    f'{self._base_frame} (RTAB-Map relocalization) before '
+                    f'sending the goal')
             return
 
         self._cancel_pending_timer()
         self._send_global(gen)
 
+    def _ready_to_plan(self):
+        if not self._tf_buffer.can_transform(
+                self._map_frame, self._base_frame, Time()):
+            return False
+        return self._localization_stable()
+
+    def _localization_stable(self):
+        """True when map -> odom has not moved for tf_settle_time seconds.
+
+        The TF buffer keeps history, so compare the current correction with
+        the one from tf_settle_time ago; a goal sent while it is still being
+        refined makes TEB chase a target that moves under it.
+        """
+        if self._settle_time <= 0.0:
+            return True
+        try:
+            current = self._tf_buffer.lookup_transform(
+                self._map_frame, 'odom', Time())
+            previous = self._tf_buffer.lookup_transform(
+                self._map_frame, 'odom',
+                self.get_clock().now() - Duration(seconds=self._settle_time))
+        except Exception:
+            # No history yet (or no odom frame): do not block the goal.
+            return True
+
+        dx = current.transform.translation.x - previous.transform.translation.x
+        dy = current.transform.translation.y - previous.transform.translation.y
+        if math.hypot(dx, dy) > self._settle_tolerance:
+            return False
+
+        def yaw(q):
+            return math.atan2(2.0 * (q.w * q.z + q.x * q.y),
+                              1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+
+        delta = yaw(current.transform.rotation) - yaw(previous.transform.rotation)
+        delta = math.atan2(math.sin(delta), math.cos(delta))
+        return abs(delta) <= self._settle_tolerance
+
     def _retry_start(self, gen):
         if gen != self._gen or self._goal_msg is None:
             self._cancel_pending_timer()
             return
-        if self._tf_buffer.can_transform(
-                self._map_frame, self._base_frame, Time()):
+        if self._ready_to_plan():
             self._cancel_pending_timer()
             self._send_global(gen)
             return
@@ -286,10 +341,50 @@ class GoalBridge(Node):
         self._send_local(gen, path)
 
     def _with_goal_orientation(self, path):
-        if self._goal_msg is not None and path.poses:
+        """Set the final pose heading of the path handed to TEB.
+
+        Default (respect_goal_orientation=false): finish facing the direction
+        of travel.  RViz's 2D Goal Pose always publishes a heading, and using
+        it made TEB rotate in place for many seconds before/after driving.
+        """
+        if self._goal_msg is None or not path.poses:
+            return path
+        if self._respect_goal_orientation:
             path.poses[-1].pose.orientation = copy.deepcopy(
                 self._goal_msg.pose.orientation)
+            return path
+
+        yaw = self._approach_yaw(path)
+        if yaw is not None:
+            q = path.poses[-1].pose.orientation
+            q.x = 0.0
+            q.y = 0.0
+            q.z = math.sin(yaw * 0.5)
+            q.w = math.cos(yaw * 0.5)
         return path
+
+    def _approach_yaw(self, path):
+        """Heading of the last >=0.2 m path segment, in the path frame.
+
+        Returns None when the path is too short to give a direction.
+        """
+        last = path.poses[-1].pose.position
+        for pose in reversed(path.poses[:-1]):
+            dx = last.x - pose.pose.position.x
+            dy = last.y - pose.pose.position.y
+            if math.hypot(dx, dy) >= 0.2:
+                return math.atan2(dy, dx)
+
+        # Position-only goal essentially on top of the robot: keep the
+        # current heading so TEB is not asked to turn.
+        try:
+            transform = self._tf_buffer.lookup_transform(
+                self._map_frame, self._base_frame, Time())
+        except Exception:
+            return None
+        q = transform.transform.rotation
+        return math.atan2(2.0 * (q.w * q.z + q.x * q.y),
+                          1.0 - 2.0 * (q.y * q.y + q.z * q.z))
 
     # ---------------------------------------------------------------- helpers
     def _cancel_pending_timer(self):

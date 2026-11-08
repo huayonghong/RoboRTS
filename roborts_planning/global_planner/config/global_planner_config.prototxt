@@ -1,6 +1,8 @@
   name: "a_star_planner"
   selected_algorithm: "a_star_planner"
   frequency: 3
-  max_retries: 5 
+  # A* is re-run at `frequency`; transient obstacle-layer updates used to
+  # abort the goal after 5 consecutive failures (~1.7 s).  Give it ~7 s.
+  max_retries: 20
   goal_distance_tolerance: 0.15
   goal_angle_tolerance: 0.15

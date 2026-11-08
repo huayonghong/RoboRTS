@@ -71,8 +71,8 @@ def generate_launch_description():
 
     vo_publish_tf_arg = DeclareLaunchArgument(
         'vo_publish_tf', default_value='true',
-        description='Let RGB-D odometry publish vo -> base_link. Must be false '
-                    'when the EKF publishes odom -> base_link.')
+        description='Let RGB-D odometry publish <odom_frame> -> base_link. '
+                    'Must be false when another node (chassis or EKF) owns it.')
 
     use_rviz_arg = DeclareLaunchArgument(
         'use_rviz', default_value='true',
@@ -151,7 +151,11 @@ def generate_launch_description():
             'subscribe_depth': True,
             'subscribe_rgb': True,
             'frame_id': 'base_link',
-            'odom_frame_id': 'vo',
+            # Keep the TF frame name in sync with odom_frame so the same node
+            # works both in the mapping/standalone stack (vo) and in the
+            # navigation stack (odom, where visual odometry replaces the
+            # chassis as the odom -> base_link owner).
+            'odom_frame_id': LaunchConfiguration('odom_frame'),
             'publish_tf': ParameterValue(
                 LaunchConfiguration('vo_publish_tf'), value_type=bool),
             'approx_sync': True,
@@ -178,6 +182,12 @@ def generate_launch_description():
             ('rgb/image', [camera_ns, '/color/image_raw']),
             ('rgb/camera_info', [camera_ns, '/color/camera_info']),
             ('depth/image', [camera_ns, '/aligned_depth_to_color/image_raw']),
+            # Keep the visual odometry off /odom: in the navigation stack the
+            # chassis owns odom -> base_link (vo_publish_tf:=false), and a
+            # second publisher on /odom (frame "vo") corrupts the odometry
+            # input of RTAB-Map and TEB.  The default visual-only mode already
+            # reads this topic (odom_topic defaults to /rgbd_odometry/odom).
+            ('odom', '/rgbd_odometry/odom'),
         ],
     )
 

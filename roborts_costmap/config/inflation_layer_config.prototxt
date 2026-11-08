@@ -1,4 +1,7 @@
-inflation_radius: 0.4
+# 0.25 m: a 0.4 m inflation plus the 0.05 m grid closed the narrow doorways
+# of the VSLAM map, making A* fail intermittently ("can't search the valid
+# path").  The local planner uses inflation_layer_config_min.prototxt.
+inflation_radius: 0.25
 cost_scaling_factor: 10
 is_raw_rosmessage: true
 is_debug: true

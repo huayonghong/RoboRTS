@@ -1,3 +1,6 @@
 roborts_base_node:
   ros__parameters:
     serial_port: "/dev/serial_sdk"
+    # Publish odom -> base_link from the chassis.  Set false when visual
+    # odometry owns that transform (VSLAM navigation).
+    publish_tf: true
