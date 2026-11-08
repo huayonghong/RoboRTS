@@ -78,6 +78,21 @@ def generate_launch_description():
         'use_rviz', default_value='true',
         description='Open RViz2 to visualize the localization on the loaded map')
 
+    # Realsense pointcloud output. Only needed by the depth-based obstacle
+    # sensing path (pointcloud_to_laserscan) in vslam_navigation.launch.py.
+    # Default false: identical to the previous behaviour, no
+    # /depth/color/points topic is produced.
+    enable_pointcloud_arg = DeclareLaunchArgument(
+        'enable_pointcloud', default_value='false',
+        description='Enable realsense pointcloud for depth-based obstacle sensing.')
+
+    # Topic on which RTAB-Map publishes its occupancy grid. Default 'map'
+    # preserves the existing behaviour. vslam_navigation.launch.py sets this
+    # to /rtabmap/map so that nav2_map_server can own /map.
+    map_topic_arg = DeclareLaunchArgument(
+        'map_topic', default_value='map',
+        description='Topic for the RTAB-Map occupancy grid output.')
+
     camera_ns = LaunchConfiguration('camera_ns')
 
     static_tf_launch = IncludeLaunchDescription(
@@ -110,6 +125,18 @@ def generate_launch_description():
             # Jetson/D455 combo raises "Depth stream start failure".
             'initial_reset': False,
             'enable_sync': True,
+            # Pointcloud output for the depth-based /scan synthesis path.
+            # Off by default so the localization launch behaves exactly as
+            # before when used on its own.
+            #
+            # realsense2_camera names the parameter after the filter's
+            # RS2_CAMERA_INFO_NAME.  On this build (4.57.7 + librealsense
+            # NEON) the pointcloud filter is called "Pointcloud (NEON)", so
+            # the sanitised name is pointcloud__neon_, not pointcloud.
+            # If the camera build changes, find the right key with:
+            #   ros2 param list /camera/camera | grep -i pointcloud
+            'pointcloud__neon_.enable': ParameterValue(
+                LaunchConfiguration('enable_pointcloud'), value_type=bool),
         }],
     )
 
@@ -173,6 +200,8 @@ def generate_launch_description():
             ('rgb/camera_info', [camera_ns, '/color/camera_info']),
             ('depth/image', [camera_ns, '/aligned_depth_to_color/image_raw']),
             ('odom', LaunchConfiguration('odom_topic')),
+            # Keep RTAB-Map's grid off /map when nav2_map_server owns it.
+            ('map', LaunchConfiguration('map_topic')),
         ],
     )
 
@@ -222,6 +251,8 @@ def generate_launch_description():
         odom_frame_arg,
         vo_publish_tf_arg,
         use_rviz_arg,
+        enable_pointcloud_arg,
+        map_topic_arg,
         static_tf_launch,
         realsense_node,
         rgbd_odometry,

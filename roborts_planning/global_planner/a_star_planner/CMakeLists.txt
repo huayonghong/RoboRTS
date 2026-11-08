@@ -19,3 +19,6 @@ ament_target_dependencies(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} ${PROTOBUF_LIBRARIES})
 
 add_library(planning::global_planner::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
+install(DIRECTORY config/
+  DESTINATION share/roborts_planning/global_planner/a_star_planner/config)

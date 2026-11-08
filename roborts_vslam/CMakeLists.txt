@@ -32,5 +32,11 @@ ament_target_dependencies(vslam_odom_relay
 install(TARGETS vslam_odom_relay DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
+install(PROGRAMS
+  scripts/map_relay.py
+  scripts/scan_frame_shift.py
+  scripts/vslam_goal_bridge.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 ament_package()

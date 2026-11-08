@@ -26,6 +26,20 @@
   <exec_depend>robot_localization</exec_depend>
   <exec_depend>realsense2_camera</exec_depend>
 
+  <!-- vslam_navigation.launch.py: both depth backends -->
+  <exec_depend>depthimage_to_laserscan</exec_depend>
+  <exec_depend>pointcloud_to_laserscan</exec_depend>
+  <exec_depend>nav2_map_server</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>rplidar_ros</exec_depend>
+  <exec_depend>roborts_base</exec_depend>
+  <!-- roborts_bringup already depends on roborts_vslam; declaring the reverse
+       would create a colcon dependency cycle. The launch file only resolves
+       its share directory at runtime. -->
+  <exec_depend>roborts_planning</exec_depend>
+  <exec_depend>roborts_msgs</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

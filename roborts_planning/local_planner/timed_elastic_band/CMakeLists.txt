@@ -25,3 +25,6 @@ ament_target_dependencies(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME} ${EXTERNAL_LIBS})
 add_library(planning::timed_elastic_band ALIAS timed_elastic_band)
+
+install(DIRECTORY config/
+  DESTINATION share/roborts_planning/local_planner/timed_elastic_band/config)
