@@ -1,7 +1,14 @@
-# 0.25 m: a 0.4 m inflation plus the 0.05 m grid closed the narrow doorways
-# of the VSLAM map, making A* fail intermittently ("can't search the valid
-# path").  The local planner uses inflation_layer_config_min.prototxt.
-inflation_radius: 0.25
-cost_scaling_factor: 10
+# Global (A*) costmap.  The cost field must span the corridor, otherwise the
+# cells in the middle are all FREE_SPACE and A* only minimises path length --
+# on this map that puts the path ~0.3 m from a wall, and the robot grazes it.
+# Measured on maps/vslam_d455.pgm (same cost model as this layer): median
+# wall clearance along an 11.5 m path goes 0.33 m (0.25/10) -> 0.61 m (0.6/3)
+# -> 0.78 m (0.8/2), with path length and passability unchanged.
+# NOTE: passability is set by the inscribed radius (footprint 0.125 +
+# footprint_padding 0.05 = 0.175 m, see inflation_layer.h ComputeCost), not by
+# inflation_radius -- cells farther than that never reach
+# INSCRIBED_INFLATED_OBSTACLE (253), and A* blocks only cost >= 253.
+inflation_radius: 0.8
+cost_scaling_factor: 2
 is_raw_rosmessage: true
 is_debug: true

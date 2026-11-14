@@ -9,7 +9,10 @@ trajectory_opt {
     dt_hysteresis: 0.01
     global_plan_overwrite_orientation: true 
     allow_init_with_backwards_motion: false 
-    global_plan_viapoint_sep: 1.5
+    # Attract the trajectory to the A* path (AddViaPointsEdges, enabled in
+    # teb_optimal.cpp).  Dense enough to keep the robot on the centred path
+    # inside a corridor instead of cutting to the 2 m local goal.
+    global_plan_viapoint_sep: 0.3
     via_points_ordered: False
     max_global_plan_lookahead_dist: 2.0
     exact_arc_length: False
@@ -40,8 +43,12 @@ tolerance_opt {
 }
 
 obstacles_opt {
-    min_obstacle_dist: 0.2 #0.8
-    inflation_dist: 0
+    # Footprint is modelled as POINT (robot half-width 0.14 m), so this is
+    # the lateral margin to the live scan obstacles: 0.2 left only 6 cm.
+    min_obstacle_dist: 0.3
+    # Soft zone beyond min_obstacle_dist (needs to be > min_obstacle_dist for
+    # the inflation edge to be added at all, see AddObstacleEdges).
+    inflation_dist: 0.5
     include_costmap_obstacles: True
     costmap_obstacles_behind_robot_dist: 0.1
     obstacle_poses_affected: 30
@@ -82,7 +89,12 @@ optimize_info {
     weight_acc_lim_x: 1
     weight_acc_lim_y: 1
     weight_acc_lim_theta: 3
-    weight_kinematics_nh: 1
+    # Couples the chassis heading to the direction of travel.  The base is
+    # omnidirectional (max_vel_y > 0), so nothing else makes TEB rotate: at 1
+    # the robot keeps its initial heading and strafes along the path.  1000
+    # (= upstream TEB default for a non-holonomic base) makes it turn to face
+    # the path tangent; lower to ~100 if it turns too aggressively.
+    weight_kinematics_nh: 1000
     weight_kinematics_forward_drive: 1
     weight_kinematics_turning_radius: 0.0
     weight_optimaltime: 1

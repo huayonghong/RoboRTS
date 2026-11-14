@@ -315,7 +315,11 @@ namespace roborts_local_planner {
 
         //AddEdgesDynamicObstacles();
 
-        //AddViaPointsEdges();
+        // Keeps the trajectory on the global plan.  Without it TEB only
+        // minimises time towards the local goal and cuts the corners of the
+        // corridor, so the robot grazes the walls even though the A* path is
+        // centred (see global_plan_viapoint_sep).
+        AddViaPointsEdges();
 
         AddVelocityEdges();
 
