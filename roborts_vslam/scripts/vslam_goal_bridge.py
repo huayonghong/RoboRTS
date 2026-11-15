@@ -12,7 +12,14 @@ the VSLAM navigation stack:
 
 * One local goal per user goal.  TEB copies its pending plan into the active
   plan every cycle (teb_local_planner.cpp: GetPlan), so a single send is
-  enough.  A bounded resend happens only if the local action aborts.
+  enough.
+* Supervision / recovery: both planner nodes abort their action when they
+  cannot find a plan -- TEB after ~5 infeasible cycles (an obstacle in the
+  corridor), A* after ~7 s without a valid path.  A recovery timer
+  (recovery_period, default 1 s) restarts whichever stage stopped and
+  replays the newest path, so a transient obstacle no longer kills the
+  mission: the robot resumes by itself once the obstacle is gone.
+  recovery_timeout (default 0 = forever) bounds it if wanted.
 * A generation counter guards callbacks: feedback/result belonging to an old
   goal can never trigger motion for a new one.
 * A new goal cancels the local goal first (stop the robot immediately), then
@@ -55,7 +62,12 @@ class GoalBridge(Node):
         self.declare_parameter('goal_topic', '/goal_pose')
         self.declare_parameter('map_frame', 'map')
         self.declare_parameter('base_frame', 'base_link')
-        self.declare_parameter('local_retries', 2)
+        # Recovery: while a goal is active but nothing is driving the robot
+        # (both actions aborted after an obstacle blocked the plan), keep
+        # restarting the pipeline at this rate.  0 timeout = retry until a
+        # new goal replaces this one.
+        self.declare_parameter('recovery_period', 1.0)
+        self.declare_parameter('recovery_timeout', 0.0)
         self.declare_parameter('tf_wait_timeout', 60.0)
         self.declare_parameter('respect_goal_orientation', False)
         # Refuse to start until map -> odom has stopped moving: RTAB-Map
@@ -68,7 +80,10 @@ class GoalBridge(Node):
         goal_topic = self.get_parameter('goal_topic').value
         self._map_frame = self.get_parameter('map_frame').value
         self._base_frame = self.get_parameter('base_frame').value
-        self._max_local_retries = int(self.get_parameter('local_retries').value)
+        self._recovery_period = max(
+            0.2, float(self.get_parameter('recovery_period').value))
+        self._recovery_timeout = float(
+            self.get_parameter('recovery_timeout').value)
         self._tf_wait_timeout = float(
             self.get_parameter('tf_wait_timeout').value)
         self._respect_goal_orientation = bool(
@@ -91,12 +106,20 @@ class GoalBridge(Node):
         self._global_handle = None
         self._local_handle = None
         self._local_sent = False
+        self._local_done = False
+        self._global_finished = False
+        self._global_pending = False
+        self._local_pending = False
         self._last_path = None
-        self._local_retries_left = 0
         self._pending_timer = None
         self._pending_since = None
+        self._goal_since = None
+        self._gave_up = False
+        self._last_recovery_log = None
 
         self.create_subscription(PoseStamped, goal_topic, self._on_goal, 10)
+        self._recovery_timer = self.create_timer(
+            self._recovery_period, self._on_recovery_tick)
 
         self.get_logger().info('waiting for planner action servers ...')
         self._global_client.wait_for_server()
@@ -121,9 +144,14 @@ class GoalBridge(Node):
 
         self._goal_msg = goal
         self._local_sent = False
+        self._local_done = False
+        self._global_finished = False
+        self._global_pending = True   # the start chain below owns planning
+        self._local_pending = False
         self._last_path = None
-        self._local_retries_left = self._max_local_retries
         self._pending_since = None
+        self._goal_since = self.get_clock().now()
+        self._gave_up = False
 
         p = goal.pose.position
         self.get_logger().info(
@@ -219,6 +247,8 @@ class GoalBridge(Node):
             waited = (self.get_clock().now() - self._pending_since).nanoseconds
             if waited > int(self._tf_wait_timeout * 1e9):
                 self._cancel_pending_timer()
+                self._gave_up = True
+                self._global_pending = False
                 self.get_logger().error(
                     f'timed out waiting for {self._map_frame}->'
                     f'{self._base_frame}; goal dropped')
@@ -227,6 +257,7 @@ class GoalBridge(Node):
         goal = GlobalPlanner.Goal()
         goal.command = 0
         goal.goal = self._goal_msg
+        self._global_pending = True
 
         self._global_client.send_goal_async(
             goal,
@@ -236,10 +267,12 @@ class GoalBridge(Node):
 
     def _on_global_accepted(self, gen, future):
         handle = future.result()
+        self._global_pending = False
         if gen != self._gen:
             handle.cancel_goal_async()
             return
         if not handle.accepted:
+            # The recovery timer will send it again.
             self.get_logger().error('global goal rejected')
             return
         self._global_handle = handle
@@ -258,11 +291,12 @@ class GoalBridge(Node):
             return
 
         path = copy.deepcopy(feedback.path)
+        # Always keep the newest path: it is what the recovery timer replays
+        # when TEB aborted and the obstacle has since been cleared.
         self._last_path = path
-        if self._local_sent:
+        if self._local_sent or self._local_pending:
             return
 
-        self._local_sent = True
         self.get_logger().info(
             f'forwarding path with {len(path.poses)} poses')
         self._send_local(gen, self._with_goal_orientation(path))
@@ -272,12 +306,22 @@ class GoalBridge(Node):
             return
         status = future.result().status
         self._global_handle = None
+        self._global_pending = False
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info('global planner reports goal reached')
+            # Do not restart the global goal from the recovery timer; the
+            # running local goal still has to finish the last leg.
+            self._global_finished = True
         elif status in (GoalStatus.STATUS_ABORTED,
                         GoalStatus.STATUS_CANCELED):
+            # Usually "no valid path" while an obstacle blocks the corridor.
+            # Stop the robot now; the recovery timer will restart the global
+            # goal, and once A* finds a path again the local goal follows.
             self.get_logger().warn(
-                f'global goal finished with status {status}')
+                f'global goal finished with status {status}; '
+                f'will retry')
+            # Let the restarted global goal's first path go straight to TEB.
+            self._local_sent = False
             local_handle = self._local_handle
             self._local_handle = None
             if local_handle is not None:
@@ -291,17 +335,20 @@ class GoalBridge(Node):
         goal = LocalPlanner.Goal()
         goal.route = path
         self._local_handle = None
+        self._local_sent = True
+        self._local_pending = True
         self._local_client.send_goal_async(goal).add_done_callback(
             lambda future: self._on_local_accepted(gen, future))
 
     def _on_local_accepted(self, gen, future):
         handle = future.result()
+        self._local_pending = False
         if gen != self._gen:
             handle.cancel_goal_async()
             return
         if not handle.accepted:
+            # The recovery timer will replay _last_path.
             self.get_logger().error('local goal rejected')
-            self._maybe_retry_local(gen)
             return
         self._local_handle = handle
         handle.get_result_async().add_done_callback(
@@ -312,7 +359,9 @@ class GoalBridge(Node):
             return
         status = future.result().status
         self._local_handle = None
+        self._local_pending = False
         if status == GoalStatus.STATUS_SUCCEEDED:
+            self._local_done = True
             self.get_logger().info('reached the goal')
             # The global planner checks the goal pose in its own A* path,
             # which has yaw 0; when the user asked for another heading it
@@ -325,20 +374,61 @@ class GoalBridge(Node):
                 global_handle.cancel_goal_async()
         elif status in (GoalStatus.STATUS_ABORTED,
                         GoalStatus.STATUS_CANCELED):
+            # TEB gives up after a few infeasible cycles (an obstacle in the
+            # corridor).  Do not abandon the mission: the recovery timer
+            # replays the latest path, so the robot resumes on its own once
+            # the obstacle is gone.
             self.get_logger().warn(
-                f'local goal finished with status {status}')
-            self._maybe_retry_local(gen)
+                f'local goal finished with status {status}; '
+                f'waiting to retry')
 
-    def _maybe_retry_local(self, gen):
-        if (gen != self._gen or self._last_path is None
-                or self._local_retries_left <= 0
-                or self._global_handle is None):
+    # -------------------------------------------------------------- recovery
+    def _on_recovery_tick(self):
+        """Restart whichever stage stopped, while the goal is still active.
+
+        Both planner nodes abort their action when they cannot find a plan
+        (TEB after 5 infeasible cycles, A* after ~7 s).  A transient obstacle
+        used to kill the whole mission: nothing was left to resume it.  Here
+        the bridge keeps the robot supervised until it reaches the goal or a
+        new goal replaces it.
+        """
+        if self._goal_msg is None or self._gave_up or self._local_done:
             return
-        self._local_retries_left -= 1
-        self.get_logger().info(
-            f'resending local goal ({self._local_retries_left} retries left)')
-        path = self._with_goal_orientation(copy.deepcopy(self._last_path))
-        self._send_local(gen, path)
+        if self._recovery_timeout > 0.0 and self._goal_since is not None:
+            waited = (self.get_clock().now() - self._goal_since).nanoseconds
+            if waited > int(self._recovery_timeout * 1e9):
+                self._gave_up = True
+                self.get_logger().error(
+                    f'recovery timeout ({self._recovery_timeout:.0f} s); '
+                    f'giving up, send a new goal to resume')
+                return
+
+        # A local goal is running (or still being accepted): nothing to do.
+        if self._local_handle is not None or self._local_pending:
+            return
+        if self._global_pending:
+            return
+
+        if self._global_handle is None and not self._global_finished:
+            if not self._goal_msg:
+                return
+            if self._ready_to_plan():
+                self._log_recovery('restarting global goal')
+                self._send_global(self._gen)
+            return
+
+        if self._last_path is not None:
+            self._log_recovery('resending local goal')
+            self._send_local(
+                self._gen,
+                self._with_goal_orientation(copy.deepcopy(self._last_path)))
+
+    def _log_recovery(self, msg):
+        now = self.get_clock().now()
+        if (self._last_recovery_log is None
+                or (now - self._last_recovery_log).nanoseconds > 10 * 10**9):
+            self.get_logger().info(msg)
+            self._last_recovery_log = now
 
     def _with_goal_orientation(self, path):
         """Set the final pose heading of the path handed to TEB.
@@ -397,6 +487,8 @@ class GoalBridge(Node):
 
     def destroy_node(self):
         self._cancel_pending_timer()
+        if self._recovery_timer is not None:
+            self._recovery_timer.cancel()
         if self._local_handle is not None:
             self._local_handle.cancel_goal_async()
             self._local_handle = None
