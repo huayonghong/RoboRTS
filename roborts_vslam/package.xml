@@ -38,6 +38,7 @@
        its share directory at runtime. -->
   <exec_depend>roborts_planning</exec_depend>
   <exec_depend>roborts_msgs</exec_depend>
+  <exec_depend>roborts_perception</exec_depend>
   <exec_depend>rviz2</exec_depend>
 
   <export>

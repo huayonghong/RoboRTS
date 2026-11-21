@@ -45,7 +45,7 @@ import os
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import (
     LaunchConfiguration, PathJoinSubstitution, PythonExpression)
@@ -70,6 +70,7 @@ def _default_database_path():
 def generate_launch_description():
     bringup_dir = get_package_share_directory('roborts_bringup')
     vslam_dir = get_package_share_directory('roborts_vslam')
+    perception_dir = get_package_share_directory('roborts_perception')
     rviz_config = os.path.join(
         vslam_dir, 'config', 'vslam_navigation.rviz')
 
@@ -349,6 +350,14 @@ def generate_launch_description():
     )
 
     # -------------------------------------------------------------- planning
+    # Local planner publishes /cmd_vel_acc straight to roborts_base.  When
+    # gesture control is enabled, that goes through cmd_vel_mux instead:
+    # local_planner -> /cmd_vel_acc_planner -> mux -> /cmd_vel_acc.
+    use_gesture_control_arg = DeclareLaunchArgument(
+        'use_gesture_control', default_value='false',
+        description='Route planner velocity through cmd_vel_mux and start '
+                    'the P6/P7 gesture-control nodes.')
+
     global_planner = Node(
         package='roborts_planning',
         executable='global_planner_node',
@@ -361,6 +370,23 @@ def generate_launch_description():
         executable='local_planner_node',
         name='local_planner_node',
         output='screen',
+        condition=UnlessCondition(LaunchConfiguration('use_gesture_control')),
+    )
+
+    local_planner_muxed = Node(
+        package='roborts_planning',
+        executable='local_planner_node',
+        name='local_planner_node',
+        output='screen',
+        remappings=[('/cmd_vel_acc', '/cmd_vel_acc_planner')],
+        condition=IfCondition(LaunchConfiguration('use_gesture_control')),
+    )
+
+    gesture_control = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                perception_dir, 'launch', 'gesture_control.launch.py')),
+        condition=IfCondition(LaunchConfiguration('use_gesture_control')),
     )
 
     goal_bridge = Node(
@@ -398,6 +424,7 @@ def generate_launch_description():
         use_nav_rviz_arg,
         use_visual_odom_arg,
         respect_goal_orientation_arg,
+        use_gesture_control_arg,
         scan_height_arg,
         scan_range_min_arg,
         scan_range_max_arg,
@@ -420,6 +447,8 @@ def generate_launch_description():
         scan_qos_relay,
         global_planner,
         local_planner,
+        local_planner_muxed,
+        gesture_control,
         goal_bridge,
         rviz_node,
     ])

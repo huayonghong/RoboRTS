@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>roborts_perception</name>
+  <version>1.0.0</version>
+  <description>Gimbal CSI camera perception (in-process capture, person and gesture detection) for RoboRTS</description>
+  <maintainer email="robomaster@dji.com">RoboMaster</maintainer>
+  <license>GPL-3.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>builtin_interfaces</depend>
+  <depend>ament_index_cpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>roborts_msgs</depend>
+  <depend>libopencv-dev</depend>
+  <depend>yaml-cpp</depend>
+  <depend>libgstreamer1.0-dev</depend>
+  <depend>libgstreamer-plugins-base1.0-dev</depend>
+  <!-- TensorRT 10.3 (libnvinfer-dev) comes from JetPack and has no rosdep key. -->
+
+  <!-- GStreamer: capture is driven through the C API (nvarguscamerasrc,
+       nvvidconv, appsink).  The Jetson plugins come from nvidia-l4t-gstreamer. -->
+  <exec_depend>gstreamer1.0-plugins-base</exec_depend>
+  <exec_depend>gstreamer1.0-plugins-good</exec_depend>
+  <exec_depend>nvidia-l4t-gstreamer</exec_depend>
+
+  <!-- Offline calibration tool (Python, no runtime part of the node). -->
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>python3-gi</exec_depend>
+  <exec_depend>gir1.2-gstreamer-1.0</exec_depend>
+  <!-- perception_view (debug visualization) -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

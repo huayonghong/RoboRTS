@@ -1,0 +1,28 @@
+# CSI camera intrinsics for the gimbal camera, ROS camera_info style.
+#
+# !!! NOMINAL VALUES -- NOT CALIBRATED !!!
+# The numbers below assume the standard IMX219 module (3.04 mm lens,
+# 1.12 um pixels) reading the 1920x1080 crop, i.e. fx ~= fy ~= 2714 px.
+# They are only a startup fallback so P3 capture can run before calibration.
+# `person_gesture_node` logs a warning while `calibrated` is false.
+#
+# Calibrate at the actual capture resolution (design doc appendix A.3):
+#   ros2 run roborts_perception calibrate_csi \
+#       --cols 9 --rows 6 --square-size 0.025 --output camera_csi.yaml
+# then copy camera_csi.yaml over this file.  Acceptance: RMS < 0.5 px.
+calibrated: false
+image_width: 1920
+image_height: 1080
+camera_name: csi_camera
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [2714.29, 0.0, 960.0,
+         0.0, 2714.29, 540.0,
+         0.0, 0.0, 1.0]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.0, 0.0, 0.0, 0.0, 0.0]
+reprojection_error: null
