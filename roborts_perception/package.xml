@@ -30,6 +30,8 @@
   <exec_depend>gstreamer1.0-plugins-base</exec_depend>
   <exec_depend>gstreamer1.0-plugins-good</exec_depend>
   <exec_depend>nvidia-l4t-gstreamer</exec_depend>
+  <!-- perception_control.launch.py optionally starts roborts_base -->
+  <exec_depend>roborts_base</exec_depend>
 
   <!-- Offline calibration tool (Python, no runtime part of the node). -->
   <exec_depend>python3-numpy</exec_depend>

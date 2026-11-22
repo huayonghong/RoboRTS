@@ -5,6 +5,11 @@
 /// publishes /cmd_gimbal_angle.  Deadband, slew limit, hold, return-to-centre
 /// and optional yaw clamping are all configurable.
 ///
+/// Following starts disabled: gesture_command_bridge enables it together with
+/// a target lock on the palm -> fist edge, and disables it on fist -> palm.
+/// Set follow_enabled:=true only if the gimbal should follow the best-scoring
+/// person from start-up without a lock.
+///
 /// The only sign/zero assumptions left for the bench are yaw_sign/pitch_sign:
 /// default -1 matches "gimbal yaw/pitch increase counter-clockwise/up", with
 /// the camera bearing yaw>0 right and pitch>0 down.  Verify on the robot before
@@ -65,15 +70,15 @@ public:
   {
     base_frame_ = declare_parameter<std::string>("base_frame", "base_link");
     gimbal_frame_ = declare_parameter<std::string>("gimbal_frame", "gimbal");
-    follow_enabled_ = declare_parameter<bool>("follow_enabled", true);
+    follow_enabled_ = declare_parameter<bool>("follow_enabled", false);
 
-    yaw_gain_ = declare_parameter<double>("yaw_gain", 0.7);
-    pitch_gain_ = declare_parameter<double>("pitch_gain", 0.7);
+    yaw_gain_ = declare_parameter<double>("yaw_gain", 0.9);
+    pitch_gain_ = declare_parameter<double>("pitch_gain", 0.9);
     yaw_sign_ = declare_parameter<double>("yaw_sign", -1.0);
     pitch_sign_ = declare_parameter<double>("pitch_sign", -1.0);
-    deadband_rad_ = declare_parameter<double>("deadband_deg", 1.0) * kDegToRad;
+    deadband_rad_ = declare_parameter<double>("deadband_deg", 0.8) * kDegToRad;
     max_rate_rad_s_ =
-      declare_parameter<double>("max_rate_deg_s", 60.0) * kDegToRad;
+      declare_parameter<double>("max_rate_deg_s", 180.0) * kDegToRad;
     hold_timeout_s_ = declare_parameter<double>("hold_timeout_s", 0.5);
     return_center_time_s_ =
       declare_parameter<double>("return_center_time_s", 3.0);
@@ -92,7 +97,7 @@ public:
     const bool set_control_mode =
       declare_parameter<bool>("set_control_mode", true);
     const int control_mode = declare_parameter<int>("control_mode", 0);
-    const double publish_rate = declare_parameter<double>("publish_rate", 30.0);
+    const double publish_rate = declare_parameter<double>("publish_rate", 50.0);
 
     if (publish_rate <= 0.0) {
       throw std::runtime_error("publish_rate must be positive");
@@ -332,10 +337,10 @@ private:
 
   std::string base_frame_;
   std::string gimbal_frame_;
-  bool follow_enabled_{true};
+  bool follow_enabled_{false};
 
-  double yaw_gain_{0.7};
-  double pitch_gain_{0.7};
+  double yaw_gain_{0.9};
+  double pitch_gain_{0.9};
   double yaw_sign_{-1.0};
   double pitch_sign_{-1.0};
   double deadband_rad_{0.0};

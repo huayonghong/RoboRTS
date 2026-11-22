@@ -1,5 +1,8 @@
 """Launch the gimbal CSI perception node (P3 capture, P4 persons, P5 gestures).
 
+This is the P3-P5 subset.  For the full P3-P7 stack (perception + gimbal
+following + gesture bridge + velocity mux), use perception_control.launch.py.
+
 The CSI camera is opened inside ``person_gesture_node`` -- there is no
 separate camera node and no image topic unless ``publish_debug_image`` is set.
 P4 needs ``models/yolo11n-pose_fp16.engine``; P5 additionally needs

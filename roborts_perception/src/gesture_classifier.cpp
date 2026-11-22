@@ -43,6 +43,13 @@ public:
   bool Middle() const {return fingers_[1];}
   bool Ring() const {return fingers_[2];}
   bool Pinky() const {return fingers_[3];}
+  // Open-hand detection is deliberately more permissive than pointing_up /
+  // victory: an open palm with the thumb tucked still means "open hand", and
+  // slight foreshortening must not demote it to pointing_up.
+  bool IndexOpen() const {return Extended(6, 8, 1.10f);}
+  bool MiddleOpen() const {return Extended(10, 12, 1.10f);}
+  bool RingOpen() const {return Extended(14, 16, 1.10f);}
+  bool PinkyOpen() const {return Extended(18, 20, 1.10f);}
   float Scale() const {return scale_;}
   const cv::Point2f & Point(int index) const {return points_[index];}
   float Score(int index) const {return scores_[index];}
@@ -97,8 +104,8 @@ GestureResult ClassifyGesture(
   const bool four_curled =
     !hand.Index() && !hand.Middle() && !hand.Ring() && !hand.Pinky();
 
-  if (hand.Thumb() && hand.Index() && hand.Middle() && hand.Ring() &&
-    hand.Pinky())
+  if (hand.IndexOpen() && hand.MiddleOpen() && hand.RingOpen() &&
+    hand.PinkyOpen())
   {
     result = {kGesturePalm, GestureName(kGesturePalm), mean_score};
   } else if (hand.Index() && hand.Middle() && !hand.Ring() && !hand.Pinky()) {

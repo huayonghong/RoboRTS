@@ -133,7 +133,9 @@ public:
     hand_roi_scale_ = declare_parameter<double>("hand_roi_scale", 0.45);
     gesture_min_frames_ = declare_parameter<int>("gesture_min_frames", 5);
     gesture_min_score_ = declare_parameter<double>("gesture_min_score", 0.6);
-    gesture_cooldown_s_ = declare_parameter<double>("gesture_cooldown_s", 1.5);
+    // Short cooldown: palm -> fist must surface quickly enough for the
+    // tracking edge in gesture_command_bridge.
+    gesture_cooldown_s_ = declare_parameter<double>("gesture_cooldown_s", 0.8);
 
     if (stats_period_ <= 0.0) {
       RCLCPP_WARN(
@@ -778,7 +780,7 @@ private:
   double hand_roi_scale_{0.45};
   int gesture_min_frames_{5};
   double gesture_min_score_{0.6};
-  double gesture_cooldown_s_{1.5};
+  double gesture_cooldown_s_{0.8};
 
   std::optional<CameraModel> camera_model_;
   std::unique_ptr<CsiCamera> camera_;

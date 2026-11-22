@@ -13,7 +13,7 @@ See `doc/gimbal_perception_design.md` for the design.
 |---|---|---|
 | `person_gesture_node` | P3/P4/P5 | in-process CSI capture, yolo11n-pose on TensorRT, optional hand-pose gestures |
 | `gimbal_follow_node` | P6 | `/perception/persons` → absolute gimbal angles |
-| `gesture_command_bridge` | P7 | gestures → `/cmd_vel_gesture`, follow toggle, target lock |
+| `gesture_command_bridge` | P7 | gesture tracking switch + motion commands → `/perception/{lock_target,follow_enable}`, `/cmd_vel_gesture` |
 | `cmd_vel_mux` | P7 | safety > gesture > planner arbitration for `/cmd_vel_acc` |
 | `pose_smoke_test` | tool | run an engine on a still image and print detections |
 | `calibrate_csi` | tool | chessboard calibration (Python, offline) |
@@ -34,6 +34,53 @@ See `doc/gimbal_perception_design.md` for the design.
 | `/cmd_vel_acc` | `roborts_msgs/TwistAccel` | `cmd_vel_mux` |
 
 ¹ only with `publish_debug_image:=true` (best effort, depth 1).
+
+## Integrated P3–P7 launch
+
+`perception_control.launch.py` starts the whole gimbal perception/control stack
+as one unit:
+
+| node | phase |
+|---|---|
+| `person_gesture_node` | P3 CSI capture, P4 persons, P5 gestures |
+| `gimbal_follow_node` | P6 visual following |
+| `gesture_command_bridge` | P7 open-hand↔fist tracking switch, thumbs_up motion |
+| `cmd_vel_mux` | P7 safety > gesture > planner → `/cmd_vel_acc` |
+
+Tracking is idle at start: show an open hand (a `palm`, or `pointing_up` /
+`victory` if that is how the model labels it), then close it into a fist to
+lock that person and start following; open the hand again to release and stop.
+
+```bash
+# camera + P4/P5 + P6/P7 (gestures enabled by default)
+ros2 launch roborts_perception perception_control.launch.py
+
+# with the perception HUD in RViz (turns on the debug image)
+ros2 launch roborts_perception perception_control.launch.py use_viewer:=true
+
+# headless / local window instead of RViz
+ros2 launch roborts_perception perception_control.launch.py \
+    use_viewer:=true use_rviz:=false show_window:=true
+
+# allow thumbs_up forward motion
+ros2 launch roborts_perception perception_control.launch.py gesture_enabled:=true
+```
+
+Requirements:
+- By default this launch also starts `roborts_base` (`start_base:=true`), which
+  publishes `base_link → gimbal` and consumes `/cmd_gimbal_angle` and
+  `/cmd_vel_acc`. If a bringup already starts the base, pass
+  `start_base:=false` or the serial port will be opened twice.
+- The main bringup already publishes the CSI static TF. Set
+  `publish_csi_tf:=true` only for a standalone run, never both.
+- `cmd_vel_mux` writes `/cmd_vel_acc`, so a planner running at the same time
+  must publish `/cmd_vel_acc_planner` instead.
+  `vslam_navigation.launch.py use_gesture_control:=true` does that remap and
+  includes this launch with `start_base:=false`, so navigation + gestures works
+  from one top-level launch.
+
+The individual launches remain available: `person_gesture.launch.py` (P3–P5)
+and `gesture_control.launch.py` (P6/P7).
 
 ## P3 — capture
 
@@ -97,15 +144,16 @@ person box height), runs the engine, and classifies with rules (no training):
 | id | name | rule |
 |---|---|---|
 | 1 | `fist` | index/middle/ring/pinky curled |
-| 2 | `palm` | all five fingers extended |
+| 2 | `palm` | index/middle/ring/pinky extended; the thumb may be tucked |
 | 3 | `victory` | index+middle extended, ring+pinky curled |
 | 4 | `pointing_up` | index extended and up, other fingers curled |
 | 5 | `thumbs_up` | thumb extended and up, other fingers curled |
 
 A gesture is confirmed after `gesture_min_frames` (5) consecutive frames with
 score ≥ `gesture_min_score` (0.6); it is edge-triggered with a
-`gesture_cooldown_s` (1.5 s) cooldown and published while it is held.
+`gesture_cooldown_s` (0.8 s) cooldown and published while it is held.
 `/perception/gestures` is published every processed frame (possibly empty).
+The short cooldown keeps the open-hand → fist tracking edge responsive.
 
 ## P6 — visual gimbal following
 
@@ -115,11 +163,16 @@ ros2 run roborts_perception gimbal_follow_node
 ros2 launch roborts_perception gesture_control.launch.py
 ```
 
-Control law: `target = current + gain * sign * bearing`, deadband 1°,
-slew limit 60°/s, 0.5 s hold on loss, return to centre after 3 s. Yaw is
+Control law: `target = current + gain * sign * bearing`, deadband 0.8°,
+slew limit 180°/s (50 Hz control loop), 0.5 s hold on loss, return to centre
+after 3 s. `yaw_gain`/`pitch_gain` default 0.9. Yaw is
 clamped to `[yaw_min_deg, yaw_max_deg]` unless `allow_chassis_follow:=true`.
 Absolute `GimbalAngle` (`yaw_mode=false`, `pitch_mode=false`) is published; the
 pitch is clamped to `[pitch_min_deg, pitch_max_deg]`.
+
+Following starts **off**: `gesture_command_bridge` turns it on together with a
+target lock on the open-hand → fist edge. Set `follow_enabled:=true` only if
+the gimbal should follow the best-scoring person before any gesture.
 
 **Bench test before enabling:** `yaw_sign`/`pitch_sign` default to `-1` for a
 gimbal whose yaw increases counter-clockwise and pitch upward. Verify direction
@@ -129,21 +182,40 @@ the 1° deadband in ~0.5 s.
 ## P7 — gesture commands and velocity mux
 
 ```bash
-ros2 launch roborts_perception gesture_control.launch.py
-# enter gesture mode explicitly:
+# one launch for P3-P7 (camera + persons + gestures + follow + mux)
+ros2 launch roborts_perception perception_control.launch.py
+
+# optional: allow thumbs_up forward motion
 ros2 service call /gesture_command_bridge/enable std_srvs/srv/SetBool "{data: true}"
 ```
 
+For P6/P7 only (camera/perception already running elsewhere), use
+`ros2 launch roborts_perception gesture_control.launch.py`.
+
 | gesture | action |
 |---|---|
-| `palm` | emergency stop, latched until the service re-enables |
-| `thumbs_up` | forward 0.15 m/s |
-| `fist` | backward 0.1 m/s |
-| `victory` | toggle visual following |
-| `pointing_up` | lock that person's `track_id` |
+| open hand → `fist` | lock that person's `track_id` and start gimbal following |
+| `fist` → open hand | release the lock and stop following (also stops motion) |
+| `thumbs_up` | forward 0.15 m/s (needs gesture mode via `~/enable`) |
 
-Speed is clamped to 0.2 m/s; 2 s without a hand stops the robot. The bridge is
-silent while gesture mode is off, so `cmd_vel_mux` falls back to the planner.
+"Open hand" means `palm`, but `pointing_up` and `victory` are also accepted:
+with the current hand-pose model a loosely opened hand is often labelled as
+one of those instead of `palm`. The tracking edge is per `track_id` and
+accepted when the open hand and fist are seen within `transition_timeout_s`
+(1.5 s); short detection gaps are tolerated. It works without entering gesture
+mode because it only moves the gimbal. Any forward speed is clamped to
+0.2 m/s and 2 s without a hand stops the robot. The bridge is silent while
+gesture mode is off, so `cmd_vel_mux` falls back to the planner.
+
+Tracking demo:
+
+```bash
+# one terminal: camera + P4/P5 + P6/P7, with the HUD in RViz
+ros2 launch roborts_perception perception_control.launch.py use_viewer:=true
+
+# in view: show an open hand, then close it into a fist -> lock + follow
+#          open the hand again (fist -> open hand)         -> release + stop
+```
 
 `cmd_vel_mux` priority is safety > gesture > planner; every source expires
 after 0.5 s and the output is zero when nothing is fresh. It publishes

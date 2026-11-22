@@ -21,6 +21,11 @@ Stack:
           rplidar_node -> /scan
   - global_planner_node (A*) + local_planner_node (TEB)
   - vslam_goal_bridge       : /goal_pose -> GlobalPlanner -> LocalPlanner
+  - perception_control.launch.py (use_gesture_control:=true, from
+    roborts_perception):
+      P3 CSI capture + P4 persons + P5 gestures + P6 gimbal following +
+      P7 gesture bridge / cmd_vel_mux.  The planner is then remapped to
+      /cmd_vel_acc_planner and the mux owns /cmd_vel_acc.
 
 All /scan producers publish in base_laser_link, which is the frame the
 costmap obstacle layer is configured with (sensor_frame).  The global static
@@ -33,6 +38,7 @@ Prerequisites:
   - A map database produced by the mapping launch; the default picks
     ~/.ros/rtabmap.db when present, otherwise ~/.ros/rtabmap_run3.db (the
     database that produced maps/vslam_d455.pgm).
+  - With use_gesture_control:=true: the gimbal CSI camera is available.
 
 Usage:
   ros2 launch roborts_vslam vslam_navigation.launch.py
@@ -40,6 +46,8 @@ Usage:
   ros2 launch roborts_vslam vslam_navigation.launch.py depth_source:=pointcloud
   ros2 launch roborts_vslam vslam_navigation.launch.py map:=vslam_d455 \\
       database_path:=$HOME/.ros/rtabmap_run3.db
+  ros2 launch roborts_vslam vslam_navigation.launch.py \\
+      use_gesture_control:=true
 """
 import os
 
@@ -355,8 +363,8 @@ def generate_launch_description():
     # local_planner -> /cmd_vel_acc_planner -> mux -> /cmd_vel_acc.
     use_gesture_control_arg = DeclareLaunchArgument(
         'use_gesture_control', default_value='false',
-        description='Route planner velocity through cmd_vel_mux and start '
-                    'the P6/P7 gesture-control nodes.')
+        description='Route planner velocity through cmd_vel_mux and start the '
+                    'integrated P3-P7 perception/gesture stack.')
 
     global_planner = Node(
         package='roborts_planning',
@@ -382,10 +390,14 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('use_gesture_control')),
     )
 
+    # The full P3-P7 stack: CSI capture, person/gesture perception, gimbal
+    # following, gesture bridge and the velocity mux.  This launch already
+    # starts roborts_base, so the included stack must not start it again.
     gesture_control = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
-                perception_dir, 'launch', 'gesture_control.launch.py')),
+                perception_dir, 'launch', 'perception_control.launch.py')),
+        launch_arguments={'start_base': 'false'}.items(),
         condition=IfCondition(LaunchConfiguration('use_gesture_control')),
     )
 
